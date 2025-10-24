@@ -1,0 +1,34 @@
+{
+	"version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-configure",
+      "type": "shell",
+      "windows":{
+        "command": "cmake -S . -B build -G 'MinGW Makefiles'" ,
+      },
+      "command": "cmake -S . -B build",
+      "problemMatcher": []
+    },  
+    {
+      "label": "build-build",
+      "type": "shell",
+      "windows":{
+        "command": "cmake -S . -B build -G 'MinGW Makefiles'; cmake --build build -j20",
+      },
+      "command": "cmake -S . -B build; cmake --build build -j20",    
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "build-clean",
+      "type": "shell",
+      "command": "cmake --build build --target clean",
+      "problemMatcher": [],
+    }, 
+
+  ]
+}
