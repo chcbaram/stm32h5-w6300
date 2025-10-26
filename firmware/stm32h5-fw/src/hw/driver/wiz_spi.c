@@ -51,7 +51,7 @@ bool wizspiInitHw(void)
   hospi1.Init.MemoryMode              = HAL_XSPI_SINGLE_MEM;
   hospi1.Init.MemoryType              = HAL_XSPI_MEMTYPE_MICRON;
   hospi1.Init.MemorySize              = HAL_XSPI_SIZE_512KB;
-  hospi1.Init.ChipSelectHighTimeCycle = 1;
+  hospi1.Init.ChipSelectHighTimeCycle = 2;
   hospi1.Init.FreeRunningClock        = HAL_XSPI_FREERUNCLK_DISABLE;
   hospi1.Init.ClockMode               = HAL_XSPI_CLOCK_MODE_0;
   hospi1.Init.WrapSize                = HAL_XSPI_WRAP_NOT_SUPPORTED;
@@ -285,6 +285,32 @@ void cliCmd(cli_args_t *args)
     else
     {
       cliPrintf("wizspiRead() Fail\n");
+    }
+
+    ret = true;
+  }
+
+  if (args->argc == 4 && args->isStr(0, "write") == true)
+  {
+    uint8_t  block_sel;
+    uint16_t addr;
+    uint8_t  data;    
+
+    block_sel = args->getData(1);
+    addr      = args->getData(2);
+    data      = args->getData(3);
+    
+    cliPrintf("bsb    : [4:2] %d, [1:0] %d\n", block_sel>>2 & 0x03, block_sel>>0 & 0x03);
+    cliPrintf("addr   : 0x%04X\n", addr);
+    cliPrintf("data   : 0x%02X\n", data);
+
+    if (wizspiWrite(block_sel, addr, &data, 1, 100))
+    {
+      cliPrintf("wizspiWrite() OK\n");
+    }
+    else
+    {
+      cliPrintf("wizspiWrite() Fail\n");
     }
 
     ret = true;
