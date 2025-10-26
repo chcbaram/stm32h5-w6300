@@ -12,6 +12,7 @@
 
 
 #include "err_code.h"
+#include "evt_code.h"
 
 
 #define _DEF_CH1              0

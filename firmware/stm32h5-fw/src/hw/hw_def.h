@@ -14,6 +14,7 @@
 
 #define _USE_HW_ASSERT
 #define _USE_HW_FAULT
+#define _USE_HW_WIZSPI
 
 
 #define _USE_HW_LED
@@ -50,11 +51,23 @@
 #define _USE_HW_RTC
 #define      HW_RTC_BOOT_MODE       RTC_BKP_DR3
 #define      HW_RTC_RESET_BITS      RTC_BKP_DR4
-    
+
+#define _USE_HW_GPIO
+#define      HW_GPIO_MAX_CH         GPIO_PIN_MAX
+
 #define _USE_HW_USB
 #define _USE_HW_CDC
 #define      HW_USE_CDC             1
 #define      HW_USE_MSC             0
+
+#define _USE_HW_EVENT
+#define      HW_EVENT_Q_MAX         8
+#define      HW_EVENT_NODE_MAX      16  
+
+#define _USE_HW_WIZNET
+#define      HW_WIZNET_SOCKET_CMD   0
+#define      HW_WIZNET_SOCKET_DHCP  1
+#define      HW_WIZNET_SOCKET_SNTP  2
 
 
 //-- CLI
@@ -63,6 +76,14 @@
 #define _USE_CLI_HW_ASSERT          1
 #define _USE_CLI_HW_UART            1
 #define _USE_CLI_HW_USB             1
+#define _USE_CLI_HW_WIZNET          1
 
+
+typedef enum
+{
+  W6300_RST,
+  W6300_INT,
+  GPIO_PIN_MAX
+} GpioPinName_t;
 
 #endif

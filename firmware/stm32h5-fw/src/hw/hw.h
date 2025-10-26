@@ -19,7 +19,10 @@ extern "C" {
 #include "qbuffer.h"
 #include "usb.h"
 #include "cdc.h"
-
+#include "gpio.h"
+#include "wiz_spi.h"
+#include "wiznet/wiznet.h"
+#include "event.h"
 #include "osal/thread.h"
 
 

@@ -41,10 +41,16 @@ bool hwInit(void)
   resetInit();    
   faultInit();
   assertInit();
+  gpioInit();
   
   usbInit();
   usbBegin(USB_CDC_MODE);
   cdcInit();
     
+  eventInit();  
+  wiznetInit();
+  wiznetDHCP();
+  wiznetSNTP();
+
   return true;
 }
