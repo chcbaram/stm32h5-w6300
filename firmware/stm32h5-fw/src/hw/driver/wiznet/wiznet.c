@@ -172,8 +172,10 @@ bool wiznetSNTP(void)
 bool wiznetInitSNTP(void)
 {
   bool ret = true;
-  uint8_t ntp_server[4] = {128, 138, 141, 172};	// time.nist.gov
-	//uint8_t ntp_server[4] = {211, 233, 84, 186};	// kr.pool.ntp.org
+  // uint8_t ntp_server[4] = {128, 138, 141, 172};	// time.nist.gov
+	// uint8_t ntp_server[4] = {211, 233, 84, 186};	// kr.pool.ntp.org
+  // uint8_t ntp_server[4] = {203, 32, 26, 46};	// kr.pool.ntp.org
+  uint8_t ntp_server[4] = {216, 239, 35, 0}; // time.google.com
 
   if (!is_init)
     return false;
