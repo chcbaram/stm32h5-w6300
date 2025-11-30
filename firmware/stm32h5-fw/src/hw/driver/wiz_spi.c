@@ -8,8 +8,22 @@
 
 
 
-static XSPI_HandleTypeDef hospi1;
+#define USE_WIZSPI_GPIO_CS    0
+#define USE_WIZSPI_DMA_RX     1
 
+
+#if USE_WIZSPI_GPIO_CS
+#define WIZSPI_CS_HIGH()      gpioPinWrite(W6300_CS, _DEF_HIGH)
+#define WIZSPI_CS_LOW()       gpioPinWrite(W6300_CS, _DEF_LOW)
+#else
+#define WIZSPI_CS_HIGH()  
+#define WIZSPI_CS_LOW()    
+#endif
+
+static XSPI_HandleTypeDef hospi1;
+static DMA_HandleTypeDef handle_GPDMA1_Channel1;
+
+static volatile bool is_rx_done = false;
 
 static bool wizspiInitHw(void);
 #ifdef _USE_HW_CLI
@@ -50,10 +64,10 @@ bool wizspiInitHw(void)
   hospi1.Init.FifoThresholdByte       = 1;
   hospi1.Init.MemoryMode              = HAL_XSPI_SINGLE_MEM;
   hospi1.Init.MemoryType              = HAL_XSPI_MEMTYPE_MICRON;
-  hospi1.Init.MemorySize              = HAL_XSPI_SIZE_512KB;
+  hospi1.Init.MemorySize              = HAL_XSPI_SIZE_1MB;
   hospi1.Init.ChipSelectHighTimeCycle = 2;
   hospi1.Init.FreeRunningClock        = HAL_XSPI_FREERUNCLK_DISABLE;
-  hospi1.Init.ClockMode               = HAL_XSPI_CLOCK_MODE_0;
+  hospi1.Init.ClockMode               = HAL_XSPI_CLOCK_MODE_3;
   hospi1.Init.WrapSize                = HAL_XSPI_WRAP_NOT_SUPPORTED;
   hospi1.Init.ClockPrescaler          = 3; 
   hospi1.Init.SampleShifting          = HAL_XSPI_SAMPLE_SHIFT_NONE;
@@ -74,6 +88,7 @@ bool wizspiRead(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length,
 {
   XSPI_RegularCmdTypeDef s_command = {0};
   uint8_t inst;
+  uint32_t pre_time;
 
 
   inst = (2<<6) | (0<<5) | block_sel;
@@ -101,17 +116,55 @@ bool wizspiRead(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length,
   s_command.DataLength         = length;
 
 
+  WIZSPI_CS_LOW(); 
+
+  uint32_t pre_time_us = micros();
+
   /* Send the command */
   if (HAL_XSPI_Command(&hospi1, &s_command, timeout_ms) != HAL_OK)
   {
+    logPrintf("[E_] wizspiRead()\n");
+    WIZSPI_CS_HIGH();
     return false;
   }
 
-  /* Reception of the data */
-  if (HAL_XSPI_Receive(&hospi1, p_data, timeout_ms) != HAL_OK)
+  #if USE_WIZSPI_DMA_RX
+  is_rx_done = false;
+  pre_time = millis();
+
+  if (HAL_XSPI_Receive_DMA(&hospi1, p_data) != HAL_OK)
   {
+    logPrintf("[E_] wizspiRead()\n");
+    WIZSPI_CS_HIGH();
     return false;
   }
+  while(1)
+  {
+    if (millis()-pre_time >= timeout_ms)
+    {
+      logPrintf("[E_] wizspiRead()\n");
+      WIZSPI_CS_HIGH();
+      return false;
+    }
+    if (is_rx_done)
+    {
+      break;
+    }
+  }
+  #else
+  /* Reception of the data */
+  HAL_StatusTypeDef hal_ret;
+
+  if ((hal_ret = HAL_XSPI_Receive(&hospi1, p_data, timeout_ms)) != HAL_OK)
+  {
+    logPrintf("[E_] wizspiRead()\n");
+    WIZSPI_CS_HIGH();
+    return false;
+  }  
+  #endif
+  WIZSPI_CS_HIGH();
+  
+  delayUs(30);
 
   return true;
 }
@@ -146,17 +199,47 @@ bool wizspiWrite(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length
   s_command.DataLength         = length;
 
 
+  uint32_t pre_time = micros();
+
+  WIZSPI_CS_LOW();
+
   if (HAL_XSPI_Command(&hospi1, &s_command, timeout_ms) != HAL_OK)
   {
+    logPrintf("[E_] wizspiWrite()\n");
+    WIZSPI_CS_HIGH();
     return false;
   }
 
   if (HAL_XSPI_Transmit(&hospi1, p_data, timeout_ms) != HAL_OK)
   {
+    logPrintf("[E_] wizspiWrite()\n");
+    WIZSPI_CS_HIGH();
     return false;
   }
 
+  WIZSPI_CS_HIGH();
+
+  if (length > 1)
+  {
+    // logPrintf("wiz write 0x%X %d, %d us\n", addr, length, micros()-pre_time);
+  }    
+
   return true;
+}
+
+void HAL_XSPI_RxCpltCallback(XSPI_HandleTypeDef *hospi)
+{
+  is_rx_done = true;
+}
+
+void GPDMA1_Channel1_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&handle_GPDMA1_Channel1);
+}
+
+void OCTOSPI1_IRQHandler(void)
+{
+  HAL_XSPI_IRQHandler(&hospi1);
 }
 
 void HAL_XSPI_MspInit(XSPI_HandleTypeDef* xspiHandle)
@@ -216,12 +299,51 @@ void HAL_XSPI_MspInit(XSPI_HandleTypeDef* xspiHandle)
     GPIO_InitStruct.Alternate = GPIO_AF6_OCTOSPI1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+    #if !USE_WIZSPI_GPIO_CS
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF9_OCTOSPI1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    #endif
+
+    /* OCTOSPI1 DMA Init */
+    /* GPDMA1_REQUEST_OCTOSPI1 Init */
+    handle_GPDMA1_Channel1.Instance = GPDMA1_Channel1;
+    handle_GPDMA1_Channel1.Init.Request = GPDMA1_REQUEST_OCTOSPI1;
+    handle_GPDMA1_Channel1.Init.BlkHWRequest = DMA_BREQ_SINGLE_BURST;
+    handle_GPDMA1_Channel1.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    handle_GPDMA1_Channel1.Init.SrcInc = DMA_SINC_FIXED;
+    handle_GPDMA1_Channel1.Init.DestInc = DMA_DINC_INCREMENTED;
+    handle_GPDMA1_Channel1.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_BYTE;
+    handle_GPDMA1_Channel1.Init.DestDataWidth = DMA_DEST_DATAWIDTH_BYTE;
+    handle_GPDMA1_Channel1.Init.Priority = DMA_LOW_PRIORITY_LOW_WEIGHT;
+    handle_GPDMA1_Channel1.Init.SrcBurstLength = 32;
+    handle_GPDMA1_Channel1.Init.DestBurstLength = 32;
+    handle_GPDMA1_Channel1.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0|DMA_DEST_ALLOCATED_PORT0;
+    handle_GPDMA1_Channel1.Init.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
+    handle_GPDMA1_Channel1.Init.Mode = DMA_NORMAL;
+    if (HAL_DMA_Init(&handle_GPDMA1_Channel1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(xspiHandle, hdmarx, handle_GPDMA1_Channel1);
+
+    if (HAL_DMA_ConfigChannelAttributes(&handle_GPDMA1_Channel1, DMA_CHANNEL_NPRIV) != HAL_OK)
+    {
+      Error_Handler();
+    }
+      
+    /* OCTOSPI1 interrupt Init */
+    HAL_NVIC_SetPriority(OCTOSPI1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(OCTOSPI1_IRQn);
+
+    /* GPDMA1 interrupt Init */
+    HAL_NVIC_SetPriority(GPDMA1_Channel1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(GPDMA1_Channel1_IRQn);
+      
   }
 }
 
@@ -246,6 +368,12 @@ void HAL_XSPI_MspDeInit(XSPI_HandleTypeDef* xspiHandle)
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_1|GPIO_PIN_3);
 
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_0|GPIO_PIN_10);
+
+    /* OCTOSPI1 DMA DeInit */
+    HAL_DMA_DeInit(xspiHandle->hdmarx);
+
+    /* OCTOSPI1 interrupt Deinit */
+    HAL_NVIC_DisableIRQ(OCTOSPI1_IRQn);    
   }
 }
 

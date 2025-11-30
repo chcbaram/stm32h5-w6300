@@ -83,6 +83,7 @@ typedef enum
 {
   W6300_RST,
   W6300_INT,
+  W6300_CS,
   GPIO_PIN_MAX
 } GpioPinName_t;
 

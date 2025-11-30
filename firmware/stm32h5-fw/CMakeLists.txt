@@ -41,8 +41,14 @@ file(GLOB_RECURSE SRC_FILES_RECURSE CONFIGURE_DEPENDS
   src/bsp/*.s
   src/common/*.c
   src/hw/*.c
+  # src/lib/ST/STM32H5xx_HAL_Driver/Src/*.c
+  )
+
+
+file(GLOB_RECURSE SRC_FILES_SPECIAL CONFIGURE_DEPENDS
   src/lib/ST/STM32H5xx_HAL_Driver/Src/*.c
   )
+
 
 # 특정 폴더를 빌드에서 제외한다.
 #
@@ -62,6 +68,7 @@ endforeach(TMP_PATH)
 add_executable(${EXECUTABLE} 
   ${SRC_FILES}
   ${SRC_FILES_RECURSE}
+  ${SRC_FILES_SPECIAL}
 )
 
 
@@ -114,8 +121,14 @@ target_compile_options(${EXECUTABLE} PRIVATE
 
   -Wall
   -g3
-  -Og
+  -O0
   )
+
+set_source_files_properties(
+    ${SRC_FILES_SPECIAL}
+    PROPERTIES
+        COMPILE_OPTIONS "-O0"
+)
 
 target_link_options(${EXECUTABLE} PRIVATE
   -T../src/bsp/ldscript/STM32H563xx_FLASH.ld

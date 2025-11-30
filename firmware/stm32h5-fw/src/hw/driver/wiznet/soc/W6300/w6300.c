@@ -117,6 +117,7 @@ uint8_t WIZCHIP_READ(uint32_t AddrSel)
   ret    = wizspiRead(opcode, addr, buf, 1, 10);
   if (!ret)
   {
+    logPrintf("error\n");
     err_code = WIZ_ERR_WIZCHIP_READ;
   }
   return buf[0];
@@ -130,7 +131,7 @@ void WIZCHIP_WRITE_BUF(uint32_t AddrSel, uint8_t *pBuf, datasize_t len)
 
   opcode = (uint8_t)(AddrSel & 0x000000FF);
   addr   = (uint16_t)((AddrSel & 0x00ffff00) >> 8);
-  ret    = wizspiWrite(opcode, addr, pBuf, len, 50);
+  ret    = wizspiWrite(opcode, addr, pBuf, len, 100);
   if (!ret)
   {
     err_code = WIZ_ERR_WIZCHIP_WRITE;
@@ -145,7 +146,7 @@ void WIZCHIP_READ_BUF(uint32_t AddrSel, uint8_t *pBuf, datasize_t len)
 
   opcode = (uint8_t)(AddrSel & 0x000000FF);
   addr   = (uint16_t)((AddrSel & 0x00ffff00) >> 8);
-  ret    = wizspiRead(opcode, addr, pBuf, len, 10);
+  ret    = wizspiRead(opcode, addr, pBuf, len, 100);
   if (!ret)
   {
     err_code = WIZ_ERR_WIZCHIP_READ;

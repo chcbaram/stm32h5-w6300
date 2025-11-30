@@ -16,6 +16,7 @@ void logPrintf(const char *fmt, ...);
 bool bspInit(void);
 
 void delay(uint32_t time_ms);
+void delayUs(uint32_t delay_us);
 uint32_t millis(void);
 uint32_t micros(void);
 

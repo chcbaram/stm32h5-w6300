@@ -25,8 +25,8 @@ static bool wiznetInitSNTP(void);
 
 
 static uint8_t memsize[2][8] = {
-  {2, 2, 2, 2, 2, 2, 2, 2},
-  {2, 2, 2, 2, 2, 2, 2, 2}
+  {4, 4, 4, 8, 0, 0, 0, 0},
+  {4, 4, 4, 8, 0, 0, 0, 0}
 };
 
 static uint8_t dhcp_buf[ETHERNET_BUF_MAX_SIZE] = {0,}; 
@@ -78,7 +78,9 @@ bool wiznetInit(void)
     ret = false;
   }
 
-
+  uint8_t syslock = SYS_NET_LOCK;
+  
+  ctlwizchip(CW_SYS_UNLOCK, &syslock);
   ctlnetwork(CN_SET_NETINFO, (void *)&net_info);
 
   if (!w6300IsReady())

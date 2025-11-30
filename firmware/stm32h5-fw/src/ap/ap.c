@@ -1,27 +1,34 @@
 #include "ap.h"
+#include "loopback.h"
 
+// #define ETHERNET_BUF_MAX_SIZE (4 * 1024)
 
-/* Buffer */
-#define ETHERNET_BUF_MAX_SIZE (1024 * 4)
-#define DATA_BUF_SIZE			ETHERNET_BUF_MAX_SIZE
-/* Socket */
-#define SOCKET_LOOPBACK 3
+#define ETHERNET_BUF_MAX_SIZE DATA_BUF_SIZE
+
+#define SOCKET_TCP_SERVER     3
+
 
 /* Port */
-#define PORT_LOOPBACK 5001
+#define PORT_TCP_SERVER       5001
+#define PORT_TCP_CLIENT       5001
+#define PORT_TCP_CLIENT_DEST  5002
+#define PORT_UDP              5003
 
-#define _USE_LOOPBACK      1
-#define _LOOPBACK_DEBUG_
+#define PORT_TCP_SERVER6      5004
+#define PORT_TCP_CLIENT6      5005
+#define PORT_TCP_CLIENT6_DEST 5006
+#define PORT_UDP6             5007
+
+#define PORT_TCP_SERVER_DUAL  5008
 
 
-uint8_t loopback_buf[DATA_BUF_SIZE];
 
-
-
+static uint8_t g_tcp_server_buf[ETHERNET_BUF_MAX_SIZE] = {
+    0,
+};
 
 static void updateLED(void);
 static void updateWiznet(void);
-static int32_t iperf_tcps(uint8_t sn, uint8_t* buf, uint16_t port);
 
 
 void apInit(void)
@@ -66,9 +73,12 @@ void updateWiznet(void)
  if (wiznetIsGetIP())
  {
     int retval = 0;
-    if ((retval = iperf_tcps(SOCKET_LOOPBACK, loopback_buf, PORT_LOOPBACK)) < 0)
+
+    /* TCP server loopback test */
+    if ((retval = loopback_tcps(SOCKET_TCP_SERVER, g_tcp_server_buf, PORT_TCP_SERVER)) < 0)
+    // if ((retval = loopback_udps(SOCKET_TCP_SERVER, g_tcp_server_buf, PORT_TCP_SERVER)) < 0)    
     {
-      logPrintf(" Loopback error : %d\n", retval);
+      logPrintf(" loopback_tcps error : %d\n", retval);
 
       while (1)
         ;
