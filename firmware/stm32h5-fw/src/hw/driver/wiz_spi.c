@@ -67,7 +67,7 @@ bool wizspiInitHw(void)
   hospi1.Init.MemorySize              = HAL_XSPI_SIZE_1MB;
   hospi1.Init.ChipSelectHighTimeCycle = 2;
   hospi1.Init.FreeRunningClock        = HAL_XSPI_FREERUNCLK_DISABLE;
-  hospi1.Init.ClockMode               = HAL_XSPI_CLOCK_MODE_3;
+  hospi1.Init.ClockMode               = HAL_XSPI_CLOCK_MODE_0;
   hospi1.Init.WrapSize                = HAL_XSPI_WRAP_NOT_SUPPORTED;
   hospi1.Init.ClockPrescaler          = 3; 
   hospi1.Init.SampleShifting          = HAL_XSPI_SAMPLE_SHIFT_NONE;
@@ -118,9 +118,6 @@ bool wizspiRead(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length,
 
   WIZSPI_CS_LOW(); 
 
-  uint32_t pre_time_us = micros();
-
-  /* Send the command */
   if (HAL_XSPI_Command(&hospi1, &s_command, timeout_ms) != HAL_OK)
   {
     logPrintf("[E_] wizspiRead()\n");
@@ -152,7 +149,6 @@ bool wizspiRead(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length,
     }
   }
   #else
-  /* Reception of the data */
   HAL_StatusTypeDef hal_ret;
 
   if ((hal_ret = HAL_XSPI_Receive(&hospi1, p_data, timeout_ms)) != HAL_OK)
@@ -163,8 +159,6 @@ bool wizspiRead(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length,
   }  
   #endif
   WIZSPI_CS_HIGH();
-  
-  delayUs(30);
 
   return true;
 }
@@ -199,8 +193,6 @@ bool wizspiWrite(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length
   s_command.DataLength         = length;
 
 
-  uint32_t pre_time = micros();
-
   WIZSPI_CS_LOW();
 
   if (HAL_XSPI_Command(&hospi1, &s_command, timeout_ms) != HAL_OK)
@@ -218,11 +210,6 @@ bool wizspiWrite(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length
   }
 
   WIZSPI_CS_HIGH();
-
-  if (length > 1)
-  {
-    // logPrintf("wiz write 0x%X %d, %d us\n", addr, length, micros()-pre_time);
-  }    
 
   return true;
 }
@@ -319,8 +306,8 @@ void HAL_XSPI_MspInit(XSPI_HandleTypeDef* xspiHandle)
     handle_GPDMA1_Channel1.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_BYTE;
     handle_GPDMA1_Channel1.Init.DestDataWidth = DMA_DEST_DATAWIDTH_BYTE;
     handle_GPDMA1_Channel1.Init.Priority = DMA_LOW_PRIORITY_LOW_WEIGHT;
-    handle_GPDMA1_Channel1.Init.SrcBurstLength = 32;
-    handle_GPDMA1_Channel1.Init.DestBurstLength = 32;
+    handle_GPDMA1_Channel1.Init.SrcBurstLength = 1;
+    handle_GPDMA1_Channel1.Init.DestBurstLength = 1;
     handle_GPDMA1_Channel1.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0|DMA_DEST_ALLOCATED_PORT0;
     handle_GPDMA1_Channel1.Init.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
     handle_GPDMA1_Channel1.Init.Mode = DMA_NORMAL;
@@ -388,16 +375,21 @@ void cliCmd(cli_args_t *args)
     ret = true;
   }
 
-  if (args->argc == 4 && args->isStr(0, "read") == true)
+  if (args->argc == 5 && args->isStr(0, "read") == true)
   {
     uint8_t  block_sel;
+    uint8_t  socket_n;
+    uint8_t  idx;
     uint16_t addr;
     uint16_t length;    
     uint8_t  data_buf[32];
 
-    block_sel = args->getData(1);
-    addr      = args->getData(2);
-    length    = constrain(args->getData(3), 0, 32);
+    socket_n  = args->getData(1) & 0x07;
+    idx       = args->getData(2) & 0x03;
+    addr      = args->getData(3);
+    length    = constrain(args->getData(4), 0, 32);
+    
+    block_sel = socket_n << 2 | idx << 0;
     
     cliPrintf("bsb    : [4:2] %d, [1:0] %d\n", block_sel>>2 & 0x03, block_sel>>0 & 0x03);
     cliPrintf("addr   : 0x%04X\n", addr);
@@ -418,16 +410,21 @@ void cliCmd(cli_args_t *args)
     ret = true;
   }
 
-  if (args->argc == 4 && args->isStr(0, "write") == true)
+  if (args->argc == 5 && args->isStr(0, "write") == true)
   {
     uint8_t  block_sel;
+    uint8_t  socket_n;
+    uint8_t  idx;    
     uint16_t addr;
     uint8_t  data;    
 
-    block_sel = args->getData(1);
-    addr      = args->getData(2);
-    data      = args->getData(3);
+    socket_n  = args->getData(1) & 0x07;
+    idx       = args->getData(2) & 0x03;
+    addr      = args->getData(3);
+    data      = args->getData(4);
     
+    block_sel = socket_n << 2 | idx << 0;
+
     cliPrintf("bsb    : [4:2] %d, [1:0] %d\n", block_sel>>2 & 0x03, block_sel>>0 & 0x03);
     cliPrintf("addr   : 0x%04X\n", addr);
     cliPrintf("data   : 0x%02X\n", data);
@@ -447,8 +444,8 @@ void cliCmd(cli_args_t *args)
   if (ret != true)
   {
     cliPrintf("wizspi info\n");
-    cliPrintf("wizspi read  block_sel addr length\n");
-    cliPrintf("wizspi write block_sel addr data\n");
+    cliPrintf("wizspi read  sn idx addr length\n");
+    cliPrintf("wizspi write sn idx addr data\n");
   }
 }
 #endif

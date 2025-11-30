@@ -25,8 +25,8 @@ static bool wiznetInitSNTP(void);
 
 
 static uint8_t memsize[2][8] = {
-  {4, 4, 4, 8, 0, 0, 0, 0},
-  {4, 4, 4, 8, 0, 0, 0, 0}
+  {4, 4, 4, 2, 0, 0, 0, 0},
+  {4, 4, 4, 2, 0, 0, 0, 0}
 };
 
 static uint8_t dhcp_buf[ETHERNET_BUF_MAX_SIZE] = {0,}; 
@@ -44,7 +44,7 @@ static bool is_chip_found = true;
 static wiz_NetInfo net_info =
     {
         .mac  = {0x00, 0x00, 0x12, 0x34, 0x56, 0x78}, // MAC address
-        .ip   = {172,  30,   1,  55},                 // IP address
+        .ip   = {172,  30,   1,  57},                 // IP address
         .sn   = {255, 255, 255,   0},                 // Subnet Mask
         .gw   = {172,  30,   1, 254},                 // Gateway
         .dns  = {8, 8, 8, 8},                         // DNS server
@@ -302,8 +302,7 @@ void wiznetUpdateDHCP(void)
           eventPub(EVENT_WIZ_PHY_DHCP, 2);
         }
         else
-        {
-          // logPrintf("[  ] DHCP RETRY %d\n", dhcp_retry);
+        {          
           eventPub(EVENT_WIZ_PHY_DHCP, 1);
         }
         break;

@@ -68,6 +68,7 @@
 #define      HW_WIZNET_SOCKET_CMD   0
 #define      HW_WIZNET_SOCKET_DHCP  1
 #define      HW_WIZNET_SOCKET_SNTP  2
+#define      HW_WIZNET_SOCKET_TCP   3
 
 
 //-- CLI
