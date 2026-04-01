@@ -160,6 +160,8 @@ bool wizspiRead(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length,
   #endif
   WIZSPI_CS_HIGH();
 
+  delayUs(30);
+
   return true;
 }
 
@@ -211,6 +213,8 @@ bool wizspiWrite(uint8_t block_sel, uint16_t addr, void *p_data, uint32_t length
 
   WIZSPI_CS_HIGH();
 
+  delayUs(30);
+  
   return true;
 }
 

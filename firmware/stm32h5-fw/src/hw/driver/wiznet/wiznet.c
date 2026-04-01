@@ -25,8 +25,8 @@ static bool wiznetInitSNTP(void);
 
 
 static uint8_t memsize[2][8] = {
-  {4, 4, 4, 2, 0, 0, 0, 0},
-  {4, 4, 4, 2, 0, 0, 0, 0}
+  {4, 4, 4, 16, 0, 0, 0, 0},
+  {4, 4, 4, 16, 0, 0, 0, 0}
 };
 
 static uint8_t dhcp_buf[ETHERNET_BUF_MAX_SIZE] = {0,}; 
