@@ -1,6 +1,6 @@
 #include "bsp.h"
 #include "hw_def.h"
-
+#include "cli.h"
 
 static void mpuInit(void);
 static void SystemClock_Config(void);
@@ -56,7 +56,19 @@ void delay(uint32_t ms)
     HAL_Delay(ms);
   }
 #else
-  HAL_Delay(ms);
+  uint32_t tickstart = millis();
+  uint32_t wait      = ms;
+
+  /* Add a freq to guarantee minimum wait */
+  if (wait < HAL_MAX_DELAY)
+  {
+    wait += (uint32_t)(uwTickFreq);
+  }
+
+  while ((millis() - tickstart) < wait)
+  {
+    cliLoopIdle();
+  }
 #endif
 }
 

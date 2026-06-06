@@ -12,10 +12,24 @@ extern "C" {
 #define UART_MAX_CH         HW_UART_MAX_CH
 
 
+typedef struct uart_driver_t_ uart_driver_t;
+
+typedef struct uart_driver_t_
+{
+  bool (*open)(uint32_t baud);
+  bool (*close)(void);
+  uint32_t (*available)(void);
+  bool (*flush)(void);
+  uint8_t (*read)(void);
+  uint32_t (*write)(uint8_t *p_data, uint32_t length);
+} uart_driver_t;
+
 bool     uartInit(void);
 bool     uartDeInit(void);
 bool     uartIsInit(void);
 bool     uartOpen(uint8_t ch, uint32_t baud);
+bool     uartIsOpen(uint8_t ch);
+bool     uartSetDriver(uint8_t ch, uart_driver_t *p_driver);
 bool     uartClose(uint8_t ch);
 uint32_t uartAvailable(uint8_t ch);
 bool     uartFlush(uint8_t ch);

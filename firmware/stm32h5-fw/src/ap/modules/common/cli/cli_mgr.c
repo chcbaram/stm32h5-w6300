@@ -1,5 +1,5 @@
 #include "cli_mgr.h"
-
+#include "driver/cli_net.h"
 
 
 #ifdef _USE_HW_CLI
@@ -15,6 +15,8 @@ static bool     is_enable = true;
 
 bool cliMgrInit(void)
 {
+  cliNetInit(23);
+
   cliOpen(cli_ch, cli_baud);
   cliBegin();  
   return true;
@@ -30,6 +32,27 @@ void cliMgrThread(void const *arg)
   if (is_enable)
   {
     cliMain();
+  }
+
+  cliNetPoll();
+  if (cliNetIsConnected())
+  {
+    cli_ch = HW_UART_CH_NET;
+  }
+  else if (cli_ch == HW_UART_CH_NET)
+  {
+    cli_ch = HW_UART_CH_CLI;
+  }
+
+  if (uartAvailable(HW_UART_CH_CLI))
+  {
+    cli_ch = HW_UART_CH_CLI;
+  }
+
+  if (cliGetPort() != cli_ch)
+  {
+    cliOpen(cli_ch, cli_baud);
+    logOpen(cli_ch, cli_baud);
   }
 }
 

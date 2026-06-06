@@ -32,6 +32,7 @@ typedef struct
   USART_TypeDef      *p_uart;
   UART_HandleTypeDef *p_huart;
   bool                is_rs485;
+  uart_driver_t      *p_driver;
 } uart_hw_t;
 
 
@@ -51,12 +52,11 @@ static DMA_NodeTypeDef Node_GPDMA1_Channel0;
 static DMA_QListTypeDef List_GPDMA1_Channel0;
 static DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
-const static uart_hw_t uart_hw_tbl[UART_MAX_CH] = 
+static uart_hw_t uart_hw_tbl[UART_MAX_CH] = 
   {
-    {"USART1 SWD   ", USART1, &huart1, false},
-    #if HW_UART_MAX_CH >= 2
-    {"USB CD       ", NULL,   NULL   , false},
-    #endif
+    {"USART1 SWD   ", USART1, &huart1, false, NULL},
+    {"USB CDC      ", NULL,   NULL   , false, NULL},
+    {"CLI NET      ", NULL,   NULL   , false, NULL},
   };
 
 
@@ -78,6 +78,15 @@ bool uartInit(void)
 #if CLI_USE(HW_UART)
   cliAdd("uart", cliUart);
 #endif
+  return true;
+}
+
+bool uartSetDriver(uint8_t ch, uart_driver_t *p_driver)
+{
+  if (ch >= UART_MAX_CH)
+    return false;
+
+  uart_hw_tbl[ch].p_driver = p_driver;
   return true;
 }
 
@@ -104,6 +113,13 @@ bool uartOpen(uint8_t ch, uint32_t baud)
     return true;
   }
 
+  if (uart_hw_tbl[ch].p_driver != NULL)
+  {
+    ret                  = uart_hw_tbl[ch].p_driver->open(baud);
+    uart_tbl[ch].is_open = ret;
+    uart_tbl[ch].baud    = baud;
+    return ret;
+  }  
 
   switch(ch)
   {
@@ -173,6 +189,11 @@ bool uartClose(uint8_t ch)
 
   uart_tbl[ch].is_open = false;
 
+  if (uart_hw_tbl[ch].p_driver != NULL)
+  {
+    uart_hw_tbl[ch].p_driver->close();
+  }
+
   return true;
 }
 
@@ -180,6 +201,12 @@ uint32_t uartAvailable(uint8_t ch)
 {
   uint32_t ret = 0;
 
+
+  if (uart_hw_tbl[ch].p_driver != NULL)
+  {
+    ret = uart_hw_tbl[ch].p_driver->available();
+    return ret;
+  }
 
   switch(ch)
   {
@@ -221,6 +248,12 @@ uint8_t uartRead(uint8_t ch)
   uint8_t ret = 0;
 
 
+  if (uart_hw_tbl[ch].p_driver != NULL)
+  {
+    ret = uart_hw_tbl[ch].p_driver->read();
+    return ret;
+  }
+
   switch(ch)
   {
     case _DEF_UART1:
@@ -242,6 +275,12 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 {
   uint32_t ret = 0;
 
+
+  if (uart_hw_tbl[ch].p_driver != NULL)
+  {
+    ret = uart_hw_tbl[ch].p_driver->write(p_data, length);
+    return ret;
+  }
 
   switch(ch)
   {
