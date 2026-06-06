@@ -23,14 +23,14 @@ enum
 
 static uint16_t net_port    = 23;
 // WIZnet에서는 고정된 하드웨어 소켓 채널(예: 0번 소켓)을 사용합니다.
-static const uint8_t cli_sn = 0; 
+static const uint8_t cli_sn = 0;
 
 static uint8_t  rx_buf[256];
-static uint16_t rx_len   = 0;
-static uint16_t rx_idx   = 0;
+static uint16_t rx_len    = 0;
+static uint16_t rx_idx    = 0;
 static uint8_t  iac_state = IAC_NORMAL;
-static bool     prev_cr  = false; 
-static uint8_t  tx_prev  = 0;     
+static bool     prev_cr   = false;
+static uint8_t  tx_prev   = 0;
 
 // WIZnet용 세션 연결 상태 플래그
 static bool          is_connected = false;
@@ -43,6 +43,7 @@ static bool     _flush(void);
 static uint8_t  _read(void);
 static uint32_t _write(uint8_t *p_data, uint32_t length);
 static void     clientClose(void);
+
 
 
 
@@ -71,7 +72,7 @@ void cliNetPoll(void)
   if (sr == SOCK_CLOSED)
   {
     // 네트워크 링크 상태 확인 API가 있다면 여기서 체크 (예: wizphy_getphilink())
-    
+
     // TCP 소켓 오픈 (논블로킹 모드로 동작하도록 설정)
     if (socket(cli_sn, Sn_MR_TCP, net_port, SF_IO_NONBLOCK) == cli_sn)
     {
@@ -86,16 +87,20 @@ void cliNetPoll(void)
   {
     // char 모드 협상 데이터
     static const uint8_t nego[] = {
-      TN_IAC, TN_WILL, TN_OPT_ECHO,
-      TN_IAC, TN_WILL, TN_OPT_SGA,
+      TN_IAC,
+      TN_WILL,
+      TN_OPT_ECHO,
+      TN_IAC,
+      TN_WILL,
+      TN_OPT_SGA,
     };
 
     is_connected = true;
-    rx_len      = 0;
-    rx_idx      = 0;
-    iac_state   = IAC_NORMAL;
-    prev_cr     = false;
-    tx_prev     = 0;
+    rx_len       = 0;
+    rx_idx       = 0;
+    iac_state    = IAC_NORMAL;
+    prev_cr      = false;
+    tx_prev      = 0;
 
     // 텔넷 옵션 명령 전송
     send(cli_sn, (uint8_t *)nego, sizeof(nego));
@@ -129,13 +134,13 @@ static void clientClose(void)
   // WIZnet 소켓 연결 종료 및 다음 접속을 위한 listen 재시작 준비
   disconnect(cli_sn);
   close(cli_sn);
-  
+
   is_connected = false;
-  rx_len    = 0;
-  rx_idx    = 0;
-  iac_state = IAC_NORMAL;
-  prev_cr   = false;
-  tx_prev   = 0;
+  rx_len       = 0;
+  rx_idx       = 0;
+  iac_state    = IAC_NORMAL;
+  prev_cr      = false;
+  tx_prev      = 0;
 }
 
 static void pushByte(uint8_t b)
@@ -150,17 +155,17 @@ static void pushByte(uint8_t b)
 
   if (b == '\n')
   {
-    if (prev_cr) 
+    if (prev_cr)
     {
       prev_cr = false;
       return;
     }
-    if (rx_len < sizeof(rx_buf)) 
+    if (rx_len < sizeof(rx_buf))
       rx_buf[rx_len++] = '\r';
     return;
   }
 
-  if (b == 0x00) 
+  if (b == 0x00)
   {
     prev_cr = false;
     return;
@@ -202,7 +207,7 @@ uint32_t _available(void)
 
   // WIZnet recv() 함수 사용
   n = recv(cli_sn, raw, sizeof(raw));
-  if (n == SOCK_BUSY) // 논블로킹 모드에서 읽을 데이터 없음
+  if (n == SOCK_BUSY)  // 논블로킹 모드에서 읽을 데이터 없음
   {
     return 0;
   }
@@ -212,7 +217,7 @@ uint32_t _available(void)
     return 0;
   }
 
-  // telnet IAC 시퀀스 처리 루틴 (기존과 동일)
+  // telnet IAC 시퀀스 처리 루틴
   rx_len = 0;
   rx_idx = 0;
   for (int i = 0; i < n; i++)
@@ -229,7 +234,7 @@ uint32_t _available(void)
         break;
 
       case IAC_CMD:
-        if (b == TN_IAC) 
+        if (b == TN_IAC)
         {
           pushByte(TN_IAC);
           iac_state = IAC_NORMAL;
@@ -239,11 +244,11 @@ uint32_t _available(void)
         else if (b == TN_SB)
           iac_state = IAC_SB;
         else
-          iac_state = IAC_NORMAL; 
+          iac_state = IAC_NORMAL;
         break;
 
       case IAC_OPT:
-        iac_state = IAC_NORMAL; 
+        iac_state = IAC_NORMAL;
         break;
 
       case IAC_SB:
@@ -281,7 +286,7 @@ static bool sendAll(const uint8_t *p, uint32_t n)
   uint32_t off = 0;
 
   while (off < n)
-    {
+  {
     int32_t s = send(cli_sn, (uint8_t *)(p + off), n - off);
     if (s == SOCK_BUSY)
     {
@@ -313,7 +318,11 @@ uint32_t _write(uint8_t *p_data, uint32_t length)
       out[oi++] = '\r';
       if (oi >= sizeof(out))
       {
-        if (!sendAll(out, oi)) { clientClose(); return 0; }
+        if (!sendAll(out, oi))
+        {
+          clientClose();
+          return 0;
+        }
         oi = 0;
       }
     }
@@ -323,13 +332,20 @@ uint32_t _write(uint8_t *p_data, uint32_t length)
 
     if (oi >= sizeof(out))
     {
-      if (!sendAll(out, oi)) { clientClose(); return 0; }
+      if (!sendAll(out, oi))
+      {
+        clientClose();
+        return 0;
+      }
       oi = 0;
     }
   }
 
-  if (oi > 0 && !sendAll(out, oi)) { clientClose(); return 0; }
+  if (oi > 0 && !sendAll(out, oi))
+  {
+    clientClose();
+    return 0;
+  }
 
   return length;
 }
-
