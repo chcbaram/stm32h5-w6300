@@ -5,30 +5,16 @@
 
 
 
-static void updateLED(void);
-static void updateWiznet(void);
-
-
-
-
 void apInit(void)
 {  
-  logBoot(false);
-  cliOpen(HW_UART_CH_CLI, 115200);  
-  cliBegin();
+  moduleInit();
 }
 
 void apMain(void)
 {
   while(1)
   {
-    cliMain();
-
-    updateLED();    
-    updateWiznet();    
-
-
-
+    moduleUpdate();
   }
 }
 
@@ -44,25 +30,24 @@ void updateLED(void)
   }
 }
 
-void updateWiznet(void)
+void update(void const *arg)
 {
-  static uint8_t iperf_buf[IPERF_BUF_MAX_SIZE] = { 0,};
-
   eventUpdate();
   wiznetUpdate();  
-
-
- if (wiznetIsGetIP())
- {
-    int retval = 0;
-
-    if ((retval = iperf_tcps(HW_WIZNET_SOCKET_TCP, iperf_buf, 5001)) < 0)
-    {
-      logPrintf(" loopback_tcps error : %d\n", retval);
-
-      while (1)
-        ;
-    }
- }
+  updateLED();    
 }
 
+void cliLoopIdle(void)
+{
+  cliMgrEnable(false);
+  moduleUpdate();
+  cliMgrEnable(true);
+}
+
+
+MODULE_DEF(ap)
+{
+  .name     = "ap",
+  .priority = MODULE_PRI_LOW,
+  .update   = update,
+};

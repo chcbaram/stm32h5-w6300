@@ -717,10 +717,15 @@ bool cliArgsIsStr(uint8_t index, const char *p_str)
   return ret;
 }
 
+__WEAK void cliLoopIdle(void)
+{
+}
+
 bool cliKeepLoop(void)
 {
   cli_t *p_cli = &cli_node;
 
+  cliLoopIdle();
 
   if (uartAvailable(p_cli->ch) == 0)
   {

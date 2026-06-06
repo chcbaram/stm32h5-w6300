@@ -5,4 +5,8 @@
 #include "hw.h"
 
 
+
+#include "module.h"
+#include "cli/cli_mgr.h"
+
 #endif

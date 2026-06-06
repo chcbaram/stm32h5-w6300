@@ -52,5 +52,7 @@ bool hwInit(void)
   wiznetDHCP();
   wiznetSNTP();
 
+  logBoot(false);
+  
   return true;
 }
