@@ -143,6 +143,8 @@ static void clientClose(void)
   tx_prev      = 0;
 }
 
+// 줄바꿈 정규화: CLI 코어는 Enter 를 CR(0x0D)로만 인식한다. telnet 은 Enter 를
+// CR LF / CR NUL / (클라에 따라) LF 단독으로 보내므로 모두 단일 CR 로 맞춘다.
 static void pushByte(uint8_t b)
 {
   if (b == '\r')
@@ -155,22 +157,25 @@ static void pushByte(uint8_t b)
 
   if (b == '\n')
   {
-    if (prev_cr)
+    if (prev_cr)                 // CR LF → LF 버림(CR 은 이미 보냄)
     {
       prev_cr = false;
       return;
     }
-    if (rx_len < sizeof(rx_buf))
+    if (rx_len < sizeof(rx_buf)) // LF 단독 → CR 로
       rx_buf[rx_len++] = '\r';
     return;
   }
 
-  if (b == 0x00)
+  if (b == 0x00)                 // CR NUL 의 NUL(또는 잡 NUL) → 버림
   {
     prev_cr = false;
     return;
   }
 
+  // 대부분 터미널(telnet/PuTTY/macOS)의 Backspace 키는 DEL(0x7F)을 보낸다. CLI 코어는
+  // 0x7F 를 forward-delete 로 처리하므로, BACK(0x08)으로 매핑해 백스페이스가 동작하게 한다.
+  // (실제 Delete 키는 ESC[3~ 라 영향 없음)
   if (b == 0x7F)
     b = 0x08;
 
