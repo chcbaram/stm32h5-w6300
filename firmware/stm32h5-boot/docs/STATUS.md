@@ -124,6 +124,14 @@ python3 tools/download/download.py <bin> --port <앱 CDC>
 #   그 외   -> cmd (download.py 는 921600)
 #   지금 누가 쥐고 있는지는 CLI 의 `usb info` 에서 CDC Owner 로 보인다
 
+# 문서 그림을 고치면 다시 만든다 (SVG 는 손으로 편집하지 않는다)
+cd firmware/stm32h5-boot/docs/images
+python3 gen_memory_map.py      # 메모리 맵
+python3 gen_slot_diagram.py    # 슬롯 핑퐁 / 롤백 / 폴트 복구
+#   확인 : rsvg-convert -b '#ffffff' -o /tmp/a.png <파일>.svg   (밝은 배경)
+#          rsvg-convert -b '#0d1117' -o /tmp/b.png <파일>.svg   (어두운 배경)
+#   렌더한 PNG 를 실제로 눈으로 볼 것. 글자가 잘리거나 겹치는 것은 그래야 보인다.
+
 # 웹페이지를 고치면 반드시 다시 만들어야 보드에 반영된다
 python3 firmware/stm32h5-fw/tools/web/gen_web.py . firmware/stm32h5-fw/src/ap/modules/net/web_page.c
 

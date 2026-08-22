@@ -11,6 +11,8 @@
 - `src/ap/modules/uf2/uf2.c` (수신 슬롯 선택)
 - `src/ap/ap.c` (`bootUp()` 판정)
 
+![슬롯 핑퐁](images/slot-pingpong.svg)
+
 ## 왜 핑퐁인가
 
 역할을 고정(UPDATE / BACKUP)하면 업데이트마다 **복사가 2회** 필요하다.
@@ -88,6 +90,8 @@ uint16_t bootInvalidateSlot(uint8_t n)
 ```
 
 (1)만 성공해도 무효로 판정되므로 소거 도중 전원이 끊겨도 안전하다.
+
+![롤백 흐름](images/rollback-flow.svg)
 
 ## 롤백 트리거
 

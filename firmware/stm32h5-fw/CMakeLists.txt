@@ -173,6 +173,12 @@ add_custom_command(TARGET ${EXECUTABLE}
 #   생략하면 8KB 오프셋 구멍이 생긴다. targetAddr 는 0-베이스 오프셋이고
 #   부트로더가 여기에 (슬롯 베이스 + FLASH_SIZE_TAG) 를 더한다.
 #
+#   버전은 configure 시점에 읽는다. hw_def.h 를 고쳐도 cmake 를 다시 돌리지 않으면
+#   파일 이름이 옛 버전으로 남는다. 실제로 그래서 rm -rf build 를 해야 했다.
+#   이 줄이 hw_def.h 가 바뀌면 configure 를 자동으로 다시 돌게 한다.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${CMAKE_CURRENT_SOURCE_DIR}/src/hw/hw_def.h")
+
 file(READ "src/hw/hw_def.h" version_in)
 string(REPLACE "\"" "" version_out ${version_in})
 string(REGEX MATCH "_DEF_FIRMWATRE_VERSION * ([-A-Za-z0-9]*)" _ ${version_out})
