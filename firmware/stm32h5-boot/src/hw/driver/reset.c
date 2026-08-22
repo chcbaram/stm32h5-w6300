@@ -10,8 +10,10 @@
 static void cliReset(cli_args_t *args);
 #endif
 
+#if defined(HW_RESET_BOOT) && HW_RESET_BOOT > 0
 static uint32_t resetCntLoad(void);
 static void     resetCntSave(uint32_t cnt);
+#endif
 
 
 static bool     is_init     = false;
@@ -153,8 +155,10 @@ bool resetInit(void)
   return ret;
 }
 
+#if defined(HW_RESET_BOOT) && HW_RESET_BOOT > 0
 //-- 카운트 저장/로드를 분리해 둔다.
 //   RTC/LSE 에 문제가 생기면 .noinit SRAM 방식으로 즉시 바꿔 끼울 수 있다.
+//   더블클릭 판정은 부트로더만 하므로 앱 빌드에서는 통째로 빠진다.
 //
 uint32_t resetCntLoad(void)
 {
@@ -175,6 +179,7 @@ void resetCntSave(uint32_t cnt)
 {
   rtcSetReg(HW_RTC_RESET_CNT, HW_RESET_CNT_MAGIC | (cnt & HW_RESET_CNT_MASK));
 }
+#endif
 
 void resetLog(void)
 {

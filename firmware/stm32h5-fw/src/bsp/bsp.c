@@ -1,6 +1,9 @@
 #include "bsp.h"
 #include "hw_def.h"
 #include "cli.h"
+#ifdef _USE_HW_USB
+#include "usb/usb.h"
+#endif
 
 static void mpuInit(void);
 static void SystemClock_Config(void);
@@ -42,6 +45,38 @@ bool bspInit(void)
   mpuInit();
 
   return ret;
+}
+
+//-- 앱 -> 부트로더 점프 경로에서 쓰인다(앱은 보통 호출하지 않지만,
+//   boot.c 를 부트로더와 공용으로 쓰기 위해 같은 구현을 둔다).
+//
+bool bspDeInit(void)
+{
+#ifdef _USE_HW_USB
+  usbDeInit();
+  HAL_Delay(50);
+#endif
+
+  __disable_irq();
+
+  for (int i=0; i<(int)(sizeof(NVIC->ICER)/sizeof(uint32_t)); i++)
+  {
+    NVIC->ICER[i] = 0xFFFFFFFF;
+    NVIC->ICPR[i] = 0xFFFFFFFF;
+  }
+  __DSB();
+  __ISB();
+
+  SysTick->CTRL = 0;
+  SysTick->LOAD = 0;
+  SysTick->VAL  = 0;
+
+  HAL_MPU_Disable();
+  __DSB();
+  __ISB();
+
+  __enable_irq();
+  return true;
 }
 
 void delay(uint32_t ms)

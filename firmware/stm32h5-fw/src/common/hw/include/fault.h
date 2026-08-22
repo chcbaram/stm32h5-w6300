@@ -35,6 +35,8 @@ typedef struct
 
 bool faultInit(void);
 bool faultReset(const char *p_msg, uint32_t *p_stack);
+bool faultGetLog(fault_log_t *p_log);
+uint32_t faultGetPc(void);
 
 
 #endif

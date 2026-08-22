@@ -28,12 +28,27 @@ extern "C" {
 bool resetInit(void);
 void resetLog(void);
 void resetToBoot(void);
+void resetToUpdate(void);
 void resetToReset(void);
 
 uint32_t resetGetBits(void);
 void     resetSetBits(uint32_t data);
 void     resetSetBootMode(uint32_t data);
 uint32_t resetGetBootMode(void);
+
+// 리셋 버튼 더블클릭 감지
+uint32_t resetGetCount(void);
+
+// 부팅 확인(confirm) / 폴트 자동 복구용 카운터
+uint32_t resetGetBootTry(void);
+void     resetSetBootTry(uint32_t cnt);
+uint32_t resetGetFaultCount(void);
+void     resetIncFaultCount(void);
+void     resetConfirmBoot(void);
+
+// ECC 2비트 오류 위치 (NMI 에서 기록 -> 다음 부팅에 정리)
+bool     resetGetEccAddr(uint32_t *p_addr);
+void     resetClearEccAddr(void);
 
 #endif
 

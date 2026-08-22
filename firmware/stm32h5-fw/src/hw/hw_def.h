@@ -47,11 +47,33 @@
 #define      HW_SWTIMER_MAX_CH      16
 
 #define _USE_HW_RESET
-#define      HW_RESET_BOOT          1
+//   0 = 앱. 리셋 원인 플래그는 부트로더가 읽고 클리어한 뒤 백업 레지스터에 남긴다.
+//   1 로 두면 앱이 이미 지워진 플래그를 읽어 항상 "원인 없음" 이 된다.
+#define      HW_RESET_BOOT          0
+
+#define _USE_HW_FLASH
 
 #define _USE_HW_RTC
+//   백업 레지스터 배정은 부트로더(stm32h5-boot/src/hw/hw_def.h)와 반드시 동일해야 한다.
 #define      HW_RTC_BOOT_MODE       RTC_BKP_DR3
 #define      HW_RTC_RESET_BITS      RTC_BKP_DR4
+#define      HW_RTC_RESET_CNT       RTC_BKP_DR5
+#define      HW_RTC_BOOT_TRY        RTC_BKP_DR6
+#define      HW_RTC_FAULT_CNT       RTC_BKP_DR7
+#define      HW_RTC_ECC_ADDR        RTC_BKP_DR8
+
+#define      HW_RESET_CNT_MAGIC     0xA55A0000UL
+#define      HW_RESET_CNT_MASK      0x000000FFUL
+#define      HW_RESET_DBLCLK_MS     300
+#define      HW_RESET_DBLCLK_CNT    2
+#define      HW_BOOT_TRY_MAX        3
+#define      HW_BOOT_FAULT_MAX      3
+#define      HW_ECC_MAGIC           0xEC000000UL
+
+//   앱이 이만큼 정상 동작하면 resetConfirmBoot() 으로 부팅 성공을 확정한다.
+//   너무 짧으면 "부팅 몇 초 뒤 항상 죽는" 펌웨어를 못 잡고,
+//   너무 길면 confirm 전에 전원이 끊길 때 오탐 롤백이 늘어난다.
+#define      HW_BOOT_CONFIRM_MS     10000
 
 #define _USE_HW_GPIO
 #define      HW_GPIO_MAX_CH         GPIO_PIN_MAX
@@ -72,6 +94,36 @@
 #define      HW_WIZNET_SOCKET_TCP   3
 
 
+//-- Flash Layout
+//   부트로더(stm32h5-boot/src/hw/hw_def.h)와 반드시 동일하게 유지할 것
+//
+#define FLASH_SIZE_TAG              0x400
+#define FLASH_SIZE_VEC              0x400
+#define FLASH_SIZE_VER              0x400
+
+#define FLASH_ADDR_BOOT             0x08000000
+#define FLASH_SIZE_BOOT             (128*1024)
+#define FLASH_ADDR_FIRM             0x08020000
+#define FLASH_SIZE_FIRM             (448*1024)
+
+#define FLASH_ADDR_SLOT0            0x08100000
+#define FLASH_ADDR_SLOT1            0x08170000
+#define FLASH_SIZE_SLOT             (448*1024)
+#define FLASH_SLOT_MAX              2
+
+#define FLASH_ADDR_BOOT_LOG         0x081E0000
+#define FLASH_SIZE_BOOT_LOG         (16*1024)
+
+#define FLASH_ADDR_NVS              0x081E4000
+#define FLASH_SIZE_NVS              (112*1024)
+
+#define BOARD_UF2_FAMILY_ID         0xFFFF0003UL
+
+//   앱은 실행 중인 뱅크1 전체를 보호한다. 갱신용 기록은 뱅크2 슬롯에만 한다.
+#define FLASH_PROTECT_ADDR          FLASH_ADDR_BOOT
+#define FLASH_PROTECT_SIZE          (FLASH_ADDR_SLOT0 - FLASH_ADDR_BOOT)
+
+
 //-- CLI
 //
 #define _USE_CLI_HW_LOG             1
@@ -79,6 +131,9 @@
 #define _USE_CLI_HW_UART            1
 #define _USE_CLI_HW_USB             1
 #define _USE_CLI_HW_WIZNET          1
+#define _USE_CLI_HW_RESET           1
+#define _USE_CLI_HW_FLASH           1
+#define _USE_CLI_HW_BOOT            1
 
 
 typedef enum

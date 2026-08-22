@@ -1,10 +1,10 @@
 #include "cli_mgr.h"
-#include "driver/cli_net.h"
 
+#ifdef _USE_HW_WIZNET
+#include "driver/cli_net.h"
+#endif
 
 #ifdef _USE_HW_CLI
-
-void cliThread(void const *arg);
 
 
 static uint8_t  cli_ch    = HW_UART_CH_CLI;
@@ -15,10 +15,12 @@ static bool     is_enable = true;
 
 bool cliMgrInit(void)
 {
+#ifdef _USE_HW_WIZNET
   cliNetInit(23);
+#endif
 
   cliOpen(cli_ch, cli_baud);
-  cliBegin();  
+  cliBegin();
   return true;
 }
 
@@ -29,11 +31,14 @@ void cliMgrEnable(bool enable)
 
 void cliMgrThread(void const *arg)
 {
+  UNUSED(arg);
+
   if (is_enable)
   {
     cliMain();
   }
 
+#ifdef _USE_HW_WIZNET
   cliNetPoll();
   if (cliNetIsConnected())
   {
@@ -43,7 +48,21 @@ void cliMgrThread(void const *arg)
   {
     cli_ch = HW_UART_CH_CLI;
   }
+#endif
 
+#ifdef _USE_HW_CDC
+  if (cdcIsConnect())
+  {
+    cli_ch = HW_UART_CH_USB;
+  }
+  else if (cli_ch == HW_UART_CH_USB)
+  {
+    cli_ch = HW_UART_CH_CLI;
+  }
+#endif
+
+  // 물리 UART 로 입력이 들어오면 항상 그쪽을 우선한다.
+  //
   if (uartAvailable(HW_UART_CH_CLI))
   {
     cli_ch = HW_UART_CH_CLI;

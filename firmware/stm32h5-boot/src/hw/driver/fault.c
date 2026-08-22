@@ -1,4 +1,5 @@
 #include "fault.h"
+#include "reset.h"
 
 
 #ifdef _USE_HW_FAULT
@@ -82,9 +83,29 @@ bool faultReset(const char *p_msg, uint32_t *p_stack)
   }
 
 
+  // 폴트로 인한 리셋 횟수를 백업 레지스터에 누적한다.
+  // .noinit(SRAM) 은 전원이 끊기면 사라지므로 여기에 따로 남긴다.
+  resetIncFaultCount();
+
   NVIC_SystemReset();
 
   return true;
+}
+
+//-- 부트 이벤트 로그에 폴트 PC 를 남기기 위한 접근자.
+//
+bool faultGetLog(fault_log_t *p_log)
+{
+  if (p_log == NULL)
+    return false;
+
+  *p_log = fault_log;
+  return (fault_log.magic_number == 0x5555AAAA || fault_log.is_reg == true);
+}
+
+uint32_t faultGetPc(void)
+{
+  return fault_log.is_reg ? fault_log.REG_PC : 0;
 }
 
 #endif

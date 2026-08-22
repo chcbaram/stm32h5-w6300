@@ -160,7 +160,30 @@ endif()
 add_custom_command(TARGET ${EXECUTABLE} 
   POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} ARGS -O binary ${EXECUTABLE} ${PROJECT_NAME}.bin
-  COMMENT "Invoking: Make Bin -> ${KEYBOARD_PATH}"
+  COMMENT "Invoking: Make Bin"
   )  
+
+
+# 부트로더가 받을 .uf2 를 함께 만든다.
+#
+#   --base 0x0 를 반드시 명시한다. uf2conv.py 의 기본 appstartaddr 는 0x2000 이라
+#   생략하면 8KB 오프셋 구멍이 생긴다. targetAddr 는 0-베이스 오프셋이고
+#   부트로더가 여기에 (슬롯 베이스 + FLASH_SIZE_TAG) 를 더한다.
+#
+file(READ "src/hw/hw_def.h" version_in)
+string(REPLACE "\"" "" version_out ${version_in})
+string(REGEX MATCH "_DEF_FIRMWATRE_VERSION * ([-A-Za-z0-9]*)" _ ${version_out})
+set(FIRM_VER ${CMAKE_MATCH_1})
+
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_custom_command(TARGET ${EXECUTABLE}
+    POST_BUILD
+    COMMAND ${Python3_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/tools/uf2/uf2conv.py
+            ${PROJECT_NAME}.bin --base 0x0 --family 0xFFFF0003
+            --convert --output ${PRJ_NAME}-${FIRM_VER}.uf2
+    COMMENT "Invoking: Make UF2"
+    )
+endif()
   
 

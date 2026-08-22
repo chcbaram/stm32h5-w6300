@@ -44,7 +44,9 @@ static void cliUart(cli_args_t *args);
 
 static bool is_init = false;
 
-__attribute__((section(".non_cache")))
+// .non_cache 섹션은 링커스크립트에 정의되어 있지 않아 orphan 으로 배치된다.
+// 그 결과 startup 의 .data 복사(_sdata.._edata)와 .bss 클리어(_sbss.._ebss)
+// 어느 쪽에도 포함되지 않아 부팅 시 쓰레기값이 남고, 플래시도 낭비된다.
 static uart_tbl_t uart_tbl[UART_MAX_CH];
 
 static UART_HandleTypeDef huart1;

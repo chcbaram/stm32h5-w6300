@@ -95,6 +95,11 @@
 
 #define BOARD_UF2_FAMILY_ID         0xFFFF0003UL
 
+//   flash.c 가 쓰기를 거부할 영역.
+//   부트로더는 자기 자신만 보호한다. FIRM 은 갱신해야 하기 때문이다.
+#define FLASH_PROTECT_ADDR          FLASH_ADDR_BOOT
+#define FLASH_PROTECT_SIZE          FLASH_SIZE_BOOT
+
 
 //-- CLI
 //

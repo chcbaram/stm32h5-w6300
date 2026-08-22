@@ -42,6 +42,7 @@ bool hwInit(void)
   faultInit();
   assertInit();
   gpioInit();
+  flashInit();
   
   usbInit();
   usbBegin(USB_CDC_MODE);
