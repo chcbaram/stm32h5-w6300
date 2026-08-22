@@ -25,6 +25,7 @@ STM32H563 용 UF2 / CDC / WebHID 부트로더. 구현 단계별로 번호를 붙
 | [17-network.md](17-network.md) | 네트워크 상태 조회. 보드 웹페이지로 넘어가기 |
 | [18-lan-scan-tcp-ota.md](18-lan-scan-tcp-ota.md) | LAN 스캔(UDP 비컨)과 이더넷 OTA. 가짜 보드로 시험하기 |
 | [19-board-webserver.md](19-board-webserver.md) | 보드 자체 웹서버. HTTP POST, 모듈 번들, 소켓 부족 |
+| [20-unique-mac.md](20-unique-mac.md) | MAC 을 UID 에서. UID 는 워드로만 읽힌다 |
 | [14-roadmap.md](14-roadmap.md) | **남은 설계와 결정 근거** |
 
 호스트 유닛 테스트는 하드웨어 없이 돈다.

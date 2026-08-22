@@ -3,6 +3,7 @@
 #include "cli.h"
 #include "rtc.h"
 #include "event.h"
+#include "util_core.h"
 
 
 #define SOCKET_DHCP           HW_WIZNET_SOCKET_DHCP
@@ -41,9 +42,10 @@ static bool is_init_sntp = false;
 static bool is_chip_found = true;
 
 
+//   MAC 은 wiznetMakeMac() 이 STM32 UID 로 채운다. 여기 값은 그 전까지의 자리다.
 static wiz_NetInfo net_info =
     {
-        .mac  = {0x00, 0x00, 0x12, 0x34, 0x56, 0x78}, // MAC address
+        .mac  = {0x02, 0x00, 0x00, 0x00, 0x00, 0x00}, // wiznetMakeMac() 이 채운다
         .ip   = {172,  30,   1,  57},                 // IP address
         .sn   = {255, 255, 255,   0},                 // Subnet Mask
         .gw   = {172,  30,   1, 254},                 // Gateway
@@ -55,10 +57,59 @@ static wiz_NetInfo net_info =
 
 
 
+//-- MAC 을 칩 고유번호에서 만든다.
+//
+//   원래 소스에 {00,00,12,34,56,78} 이 박혀 있었다. 보드를 두 장 이상 같은 망에
+//   올리면 **MAC 이 겹친다.** mDNS 이름이 겹치는 것과는 차원이 다른 문제다 -
+//   스위치의 MAC 테이블이 두 포트 사이에서 뒤집히고, ARP 가 어느 쪽을 가리킬지
+//   모르고, DHCP 서버가 같은 클라이언트로 보고 같은 IP 를 내줄 수 있다.
+//
+//   STM32 UID 는 96비트이고 칩마다 다르다. 거기서 만든다.
+//
+//     [0] 0x02   bit1=1 locally administered, bit0=0 unicast
+//                제조사에서 산 OUI 가 아니므로 이 표시가 필요하다
+//     [1] 0x00   우리 보드 표시용 고정
+//     [2] UID[0] 웨이퍼 X - 다이마다 다르다
+//     [3] UID[1] 웨이퍼 Y
+//     [4] [5]    UID 12바이트 전체의 CRC16 - 로트가 달라도 갈린다
+//
+static void wiznetMakeMac(uint8_t *p_mac)
+{
+  //   UID 는 32비트씩 읽어야 한다. 바이트로 읽으면 **하드폴트가 난다.**
+  //
+  //   utilCalcCRC() 에 UID 주소를 그대로 넘겼다가 걸렸다. 그 함수는 uint8_t 로
+  //   훑는다. 폴트 덤프의 R1/R2/R3 가 전부 0x08FFF800(UID_BASE)이었고 PC 는
+  //   utilCalcCRC 안이었다. mpuInit() 이 이 영역을 non-cacheable 로 잡아 접근이
+  //   버스로 바로 나가는데, 이 영역은 워드 단위만 받는다.
+  //
+  //   usbd_desc_cmp.c 가 *(uint32_t *) 로 읽고 멀쩡한 것이 대조가 된다.
+  //   그래서 워드로 지역 버퍼에 옮긴 뒤 거기서 계산한다.
+  //
+  uint32_t uid[3];
+  uint8_t  buf[12];
+  uint16_t crc;
+
+  uid[0] = *(volatile uint32_t *)(UID_BASE + 0);
+  uid[1] = *(volatile uint32_t *)(UID_BASE + 4);
+  uid[2] = *(volatile uint32_t *)(UID_BASE + 8);
+  memcpy(buf, uid, sizeof(buf));
+
+  crc = utilCalcCRC(0, buf, sizeof(buf));
+
+  p_mac[0] = 0x02;
+  p_mac[1] = 0x00;
+  p_mac[2] = buf[0];
+  p_mac[3] = buf[1];
+  p_mac[4] = (uint8_t)(crc >> 8);
+  p_mac[5] = (uint8_t)(crc & 0xFF);
+}
+
 bool wiznetInit(void)
 {
   bool ret = true;
   uint8_t id_str[6] = {0,};
+
+  wiznetMakeMac(net_info.mac);
 
   
   ret = w6300Init();
