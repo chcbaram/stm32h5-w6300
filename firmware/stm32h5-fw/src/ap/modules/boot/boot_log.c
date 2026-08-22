@@ -32,27 +32,78 @@ static bool bootLogReadRec(uint8_t sect, uint16_t idx, boot_log_t *p_log)
   return (p_log->magic == BOOT_LOG_MAGIC);
 }
 
-//-- 섹터 안의 유효 레코드 개수와 마지막 seq 를 찾는다.
+static bool bootLogRecIsBlank(uint8_t sect, uint16_t idx)
+{
+  uint8_t chk[BOOT_LOG_REC_SIZE];
+
+  if (flashRead(bootLogSectAddr(sect) + (uint32_t)idx * BOOT_LOG_REC_SIZE,
+                chk, sizeof(chk)) != true)
+    return false;
+
+  for (uint32_t i = 0; i < sizeof(chk); i++)
+  {
+    if (chk[i] != 0xFF)
+      return false;
+  }
+  return true;
+}
+
+//-- 섹터 안의 유효 레코드 개수 / 첫·마지막 seq / 다음 기록 위치를 찾는다.
 //
-static uint16_t bootLogScanSect(uint8_t sect, uint32_t *p_first_seq, uint32_t *p_last_seq)
+//   섹터 전체를 훑고 빈틈을 건너뛴다. 첫 무효 레코드에서 멈추면 안 된다.
+//   기록 도중 전원이 끊기면 magic 이 없는 자리가 하나 생기는데, 거기서 스캔을
+//   멈추면 그 뒤의 정상 레코드가 영영 보이지 않는다(호스트 전원손실 시험에서
+//   실제로 잡힌 버그다).
+//
+static uint16_t bootLogScanSect(uint8_t sect, uint32_t *p_first_seq,
+                                uint32_t *p_last_seq, uint16_t *p_next_idx)
 {
   boot_log_t log;
   uint16_t   count = 0;
+  uint16_t   next  = 0;
 
   *p_first_seq = 0;
   *p_last_seq  = 0;
 
   for (uint16_t i = 0; i < BOOT_LOG_REC_MAX; i++)
   {
+    if (bootLogRecIsBlank(sect, i))
+      continue;                    // 아직 안 쓴 자리
+
+    next = i + 1;                  // 뭔가 쓰여 있으면 다음 기록은 이 뒤로
+
     if (bootLogReadRec(sect, i, &log) != true)
-      break;                       // 첫 빈 자리에서 끝
+      continue;                    // 부분 기록 (magic 없음) -> 건너뛴다
 
     if (count == 0)
       *p_first_seq = log.seq;
     *p_last_seq = log.seq;
     count++;
   }
+
+  if (p_next_idx != NULL)
+    *p_next_idx = next;
+
   return count;
+}
+
+//-- 섹터 안에서 n 번째 '유효' 레코드를 찾는다 (빈틈 건너뜀).
+//
+static bool bootLogReadNth(uint8_t sect, uint16_t n, boot_log_t *p_log)
+{
+  uint16_t seen = 0;
+
+  for (uint16_t i = 0; i < BOOT_LOG_REC_MAX; i++)
+  {
+    if (bootLogRecIsBlank(sect, i))
+      continue;
+    if (bootLogReadRec(sect, i, p_log) != true)
+      continue;
+    if (seen == n)
+      return true;
+    seen++;
+  }
+  return false;
 }
 
 bool bootLogInit(void)
@@ -61,8 +112,10 @@ bool bootLogInit(void)
   uint32_t last[BOOT_LOG_SECTOR_MAX]  = {0};
   uint16_t cnt[BOOT_LOG_SECTOR_MAX]   = {0};
 
+  uint16_t nxt[BOOT_LOG_SECTOR_MAX] = {0};
+
   for (uint8_t s = 0; s < BOOT_LOG_SECTOR_MAX; s++)
-    cnt[s] = bootLogScanSect(s, &first[s], &last[s]);
+    cnt[s] = bootLogScanSect(s, &first[s], &last[s], &nxt[s]);
 
   // seq 가 가장 큰 섹터가 현재 세대다.
   cur_sect = 0;
@@ -72,7 +125,7 @@ bool bootLogInit(void)
       cur_sect = s;
   }
 
-  cur_idx  = cnt[cur_sect];
+  cur_idx  = nxt[cur_sect];
   next_seq = (cnt[cur_sect] > 0) ? last[cur_sect] + 1 : 1;
 
   is_init = true;
@@ -109,24 +162,10 @@ bool bootLogWrite(boot_evt_t evt, int8_t slot, uint32_t from_crc,
     cur_idx  = 0;
   }
 
-  // 부분 기록이 남은 자리는 건너뛴다 (재기록 불가).
-  while (cur_idx < BOOT_LOG_REC_MAX)
-  {
-    uint8_t chk[BOOT_LOG_REC_SIZE];
-    bool blank = true;
-
-    addr = bootLogSectAddr(cur_sect) + (uint32_t)cur_idx * BOOT_LOG_REC_SIZE;
-    if (flashRead(addr, chk, sizeof(chk)) != true)
-      return false;
-
-    for (uint32_t i = 0; i < sizeof(chk); i++)
-    {
-      if (chk[i] != 0xFF) { blank = false; break; }
-    }
-    if (blank)
-      break;
+  // 부분 기록이 남은 자리는 건너뛴다 (쿼드워드 재기록 불가).
+  while (cur_idx < BOOT_LOG_REC_MAX && bootLogRecIsBlank(cur_sect, cur_idx) != true)
     cur_idx++;
-  }
+
   if (cur_idx >= BOOT_LOG_REC_MAX)
     return false;
 
@@ -167,7 +206,7 @@ uint16_t bootLogGetCount(void)
   uint16_t total = 0;
 
   for (uint8_t s = 0; s < BOOT_LOG_SECTOR_MAX; s++)
-    total += bootLogScanSect(s, &f, &l);
+    total += bootLogScanSect(s, &f, &l, NULL);
 
   return total;
 }
@@ -181,7 +220,7 @@ bool bootLogRead(uint16_t idx, boot_log_t *p_log)
 
   for (uint8_t s = 0; s < BOOT_LOG_SECTOR_MAX; s++)
   {
-    c[s] = bootLogScanSect(s, &f[s], &l[s]);
+    c[s] = bootLogScanSect(s, &f[s], &l[s], NULL);
     if (c[s] > 0)
       order[n++] = s;
   }
@@ -195,7 +234,7 @@ bool bootLogRead(uint16_t idx, boot_log_t *p_log)
   for (uint8_t i = 0; i < n; i++)
   {
     if (idx < c[order[i]])
-      return bootLogReadRec(order[i], idx, p_log);
+      return bootLogReadNth(order[i], idx, p_log);
     idx -= c[order[i]];
   }
   return false;
