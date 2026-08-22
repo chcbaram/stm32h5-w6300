@@ -98,6 +98,13 @@
 
 #define BOARD_UF2_FAMILY_ID         0xFFFF0003UL
 
+//   호스트(웹/툴)가 지금 붙은 쪽이 부트로더인지 앱인지 구분하는 값.
+//   BOOT_CMD_INFO 응답에 실려 나간다. 같은 VID/PID 로 열거되므로 USB 만으로는
+//   구분할 수 없다.
+#define HW_DEV_MODE_BOOT            0
+#define HW_DEV_MODE_APP             1
+#define HW_DEV_MODE                 HW_DEV_MODE_BOOT      // 부트로더
+
 //   flash.c 가 쓰기를 거부할 영역.
 //   부트로더는 자기 자신만 보호한다. FIRM 은 갱신해야 하기 때문이다.
 #define FLASH_PROTECT_ADDR          FLASH_ADDR_BOOT

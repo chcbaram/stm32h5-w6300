@@ -42,6 +42,10 @@
   .small{font-size:13px}
   .warn{border-left:3px solid var(--accent);padding-left:12px;margin:0 0 18px;
         color:var(--muted);font-size:13.5px}
+  .badge{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;
+         border:1px solid var(--line);color:#fff}
+  .badge.boot{background:#8367c7;border-color:#8367c7}
+  .badge.app{background:var(--ok);border-color:var(--ok)}
 </style>
 </head>
 <body>
@@ -59,6 +63,7 @@
       <button id="btnConnect" class="primary">장치 연결</button>
       <button id="btnRefresh" disabled>새로고침</button>
       <span id="devState" class="muted">연결되지 않음</span>
+      <span id="devMode" class="badge" hidden></span>
     </div>
   </div>
 
@@ -70,6 +75,7 @@
 
 <script type="module">
 import { HidChannel } from './web/proto.js';
+import { BOOT_CMD, parseInfo, DEV_MODE_BOOT } from './web/boot.js';
 import * as firmware from './web/panels/firmware.js';
 import * as board    from './web/panels/board.js';
 
@@ -77,7 +83,7 @@ const VID = 0xCAFE, PID = 0xB003;
 const PANELS = [firmware, board];
 
 const $ = (id) => document.getElementById(id);
-let device = null, channel = null, current = null;
+let device = null, channel = null, current = null, devInfo = null;
 
 function log(msg, cls) {
   const el = $('log');
@@ -95,14 +101,39 @@ function selectPanel(p) {
   if (channel) p.refresh(ctx).catch(e => log(`${p.title}: ${e.message}`, 'err'));
 }
 
+//-- 연결된 쪽(부트로더/앱)에서 의미 있는 패널만 남긴다.
+//   연결 전에는 전부 보여주되 내용은 비어 있다.
+//
+function visiblePanels() {
+  if (!devInfo) return PANELS;
+  return PANELS.filter(p => !p.modes || p.modes.includes(devInfo.mode));
+}
+
 function buildTabs() {
+  const list = visiblePanels();
   $('tabs').innerHTML = '';
-  for (const p of PANELS) {
+  for (const p of list) {
     const b = document.createElement('button');
     b.textContent = p.title;
     b.dataset.id = p.id;
     b.onclick = () => selectPanel(p);
     $('tabs').appendChild(b);
+  }
+  if (!list.includes(current)) selectPanel(list[0]);
+}
+
+function showMode() {
+  const el = $('devMode');
+  if (!devInfo) { el.hidden = true; return; }
+
+  const isBoot = devInfo.mode === DEV_MODE_BOOT;
+  el.hidden = false;
+  el.textContent = isBoot ? 'BOOTLOADER' : 'APP';
+  el.className = 'badge ' + (isBoot ? 'boot' : 'app');
+
+  if (!isBoot) {
+    log('앱이 실행 중이다. 펌웨어를 갱신하려면 리셋 버튼을 빠르게 두 번 눌러 ' +
+        '부트로더로 진입한 뒤 다시 연결한다.', 'muted');
   }
 }
 
@@ -120,7 +151,12 @@ async function connect() {
   $('devState').textContent = device.productName || '연결됨';
   $('devState').className = 'ok';
   $('btnRefresh').disabled = false;
-  log(`연결: ${device.productName}`, 'ok');
+
+  // USB 만으로는 부트로더/앱을 구분할 수 없다. INFO 를 먼저 물어본다.
+  devInfo = parseInfo((await channel.request(BOOT_CMD.INFO)).data);
+  log(`연결: ${devInfo.name} ${devInfo.version}`, 'ok');
+  showMode();
+  buildTabs();
   await refreshAll();
 }
 
@@ -139,6 +175,9 @@ navigator.hid?.addEventListener('disconnect', (e) => {
     $('btnRefresh').disabled = true;
     if (channel) channel.detach();
     channel = null;
+    devInfo = null;
+    showMode();
+    buildTabs();
   }
 });
 

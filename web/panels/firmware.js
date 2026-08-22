@@ -1,11 +1,14 @@
 //-- 펌웨어 갱신 패널 (부트로더 전용)
 //
-import { BOOT_CMD, parseVersion, parseInfo, parseLog, EVT_NAME } from '../boot.js';
+import { BOOT_CMD, parseVersion, parseInfo, parseLog, EVT_NAME, DEV_MODE_BOOT } from '../boot.js';
 
 const CHUNK = 512;
 
 export const id    = 'firmware';
 export const title = '펌웨어';
+
+// 이 패널은 부트로더에서만 의미가 있다. 앱에는 FW_BEGIN/WRITE 커맨드가 없다.
+export const modes = [DEV_MODE_BOOT];
 
 export function render() {
   return `

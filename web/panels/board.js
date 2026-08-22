@@ -4,10 +4,13 @@
 //   앱(stm32h5-fw)에 HID 채널이 붙으면 IP/MAC/하드웨어 정보와 테스트 항목을
 //   여기에 추가한다. 프로토콜 계층(proto.js)은 그대로 쓰면 된다.
 //
-import { BOOT_CMD, parseInfo } from '../boot.js';
+import { BOOT_CMD, parseInfo, DEV_MODE_BOOT, DEV_MODE_APP } from '../boot.js';
 
 export const id    = 'board';
 export const title = '보드 정보';
+
+// 부트로더/앱 양쪽에서 볼 수 있다.
+export const modes = [DEV_MODE_BOOT, DEV_MODE_APP];
 
 export function render() {
   return `
@@ -32,9 +35,16 @@ export async function refresh({ $, channel }) {
   const hx = (v) => '0x' + v.toString(16).toUpperCase().padStart(8, '0');
   const kb = (v) => `${(v / 1024).toFixed(0)} KB`;
 
-  $('bdTbl').innerHTML = `
+  const common = `
+    <tr><th>실행 중</th><td>${i.mode === DEV_MODE_BOOT ? '부트로더' : '앱'}
+        · ${i.name} ${i.version}</td></tr>`;
+
+  const flash = `
     <tr><th>BOOT</th><td>${hx(i.bootAddr)}</td></tr>
     <tr><th>FIRM</th><td>${hx(i.firmAddr)} · ${kb(i.firmSize)}</td></tr>
     <tr><th>슬롯</th><td>${i.slotMax} 개 · ${kb(i.slotSize)}</td></tr>
     <tr><th>UF2 familyID</th><td>${hx(i.familyId)}</td></tr>`;
+
+  // 앱 모드에서는 네트워크/하드웨어 정보가 여기에 더 붙는다(앱에 HID 가 붙은 뒤).
+  $('bdTbl').innerHTML = common + flash;
 }

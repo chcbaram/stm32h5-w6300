@@ -21,16 +21,27 @@ export const ITEM_SIZE = 84;      // boot_ver_item_t
 
 export const EVT_NAME = ['?', 'UPDATE', 'ROLLBACK', 'FAULT_RECOVER', 'VERIFY_FAIL', 'ECC_CLEAN'];
 
+export const DEV_MODE_BOOT = 0;
+export const DEV_MODE_APP  = 1;
+
+//-- 연결 직후 가장 먼저 부른다.
+//
+//   부트로더와 앱이 같은 VID/PID 로 열거되므로 USB 만으로는 구분할 수 없다.
+//   mode 로 어느 쪽인지 판별하고, 그에 따라 보여줄 패널을 정한다.
+//
 export function parseInfo(d) {
   const dv = new DataView(d.buffer, d.byteOffset);
   return {
     magic:    dv.getUint32(0,  true),
-    bootAddr: dv.getUint32(4,  true),
-    firmAddr: dv.getUint32(8,  true),
-    firmSize: dv.getUint32(12, true),
-    slotSize: dv.getUint32(16, true),
-    slotMax:  dv.getUint32(20, true),
-    familyId: dv.getUint32(24, true),
+    mode:     dv.getUint32(4,  true),
+    bootAddr: dv.getUint32(8,  true),
+    firmAddr: dv.getUint32(12, true),
+    firmSize: dv.getUint32(16, true),
+    slotSize: dv.getUint32(20, true),
+    slotMax:  dv.getUint32(24, true),
+    familyId: dv.getUint32(28, true),
+    name:     str32(d, 32),
+    version:  str32(d, 64),
   };
 }
 

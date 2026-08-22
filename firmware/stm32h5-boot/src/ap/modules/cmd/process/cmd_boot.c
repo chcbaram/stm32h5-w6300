@@ -21,15 +21,24 @@
 #define BOOT_CMD_LOG_READ         0x000B
 
 
+//-- 호스트가 연결 직후 가장 먼저 부르는 커맨드의 응답.
+//
+//   부트로더와 앱이 같은 VID/PID 로 열거되므로 USB 만으로는 어느 쪽인지 알 수 없다.
+//   mode 와 실행 중인 펌웨어의 이름/버전을 여기서 알려준다. 웹/툴은 이 값으로
+//   보여줄 항목을 결정한다.
+//
 typedef struct
 {
   uint32_t magic;
+  uint32_t mode;              // HW_DEV_MODE_BOOT / HW_DEV_MODE_APP
   uint32_t boot_addr;
   uint32_t firm_addr;
   uint32_t firm_size;
   uint32_t slot_size;
   uint32_t slot_max;
   uint32_t family_id;
+  char     name[32];          // 지금 실행 중인 쪽의 이름
+  char     version[32];       // 지금 실행 중인 쪽의 버전
 } __attribute__((packed)) boot_info_t;
 
 typedef struct
@@ -106,13 +115,20 @@ bool cmdBootProcess(cmd_t *p_cmd)
     {
       boot_info_t info;
 
+      memset(&info, 0, sizeof(info));
       info.magic     = VERSION_MAGIC_NUMBER;
+      info.mode      = HW_DEV_MODE;
       info.boot_addr = FLASH_ADDR_BOOT;
       info.firm_addr = FLASH_ADDR_FIRM;
       info.firm_size = FLASH_SIZE_FIRM;
       info.slot_size = FLASH_SIZE_SLOT;
       info.slot_max  = FLASH_SLOT_MAX;
       info.family_id = BOARD_UF2_FAMILY_ID;
+
+      // 자기 이름/버전. memcpy 로 고정 길이를 복사하면 문자열 리터럴 끝을 넘어
+      // 읽으므로 strncpy 를 쓴다(구조체는 위에서 0 으로 초기화했다).
+      strncpy(info.name,    _DEF_BOARD_NAME,        sizeof(info.name) - 1);
+      strncpy(info.version, _DEF_FIRMWATRE_VERSION, sizeof(info.version) - 1);
 
       cmdSendResp(p_cmd, cmd, CMD_OK, (uint8_t *)&info, sizeof(info));
       break;

@@ -131,10 +131,23 @@ class HidTransport:
         return out
 
 
+DEV_MODE_BOOT = 0
+DEV_MODE_APP  = 1
+
 def parse_info(d):
-    f = struct.unpack("<7I", d[:28])
-    return dict(zip(("magic","boot_addr","firm_addr","firm_size",
-                     "slot_size","slot_max","family_id"), f))
+    """연결 직후 가장 먼저 부른다.
+
+    부트로더와 앱이 같은 VID/PID 로 열거되므로 USB 만으로는 구분할 수 없다.
+    mode 로 판별한다.
+    """
+    f = struct.unpack("<8I", d[:32])
+    out = dict(zip(("magic","mode","boot_addr","firm_addr","firm_size",
+                    "slot_size","slot_max","family_id"), f))
+    z = lambda b: b.split(b"\0")[0].decode("ascii", "replace").strip()
+    out["name"]    = z(d[32:64])
+    out["version"] = z(d[64:96])
+    out["mode_str"] = "BOOT" if out["mode"] == DEV_MODE_BOOT else "APP"
+    return out
 
 
 ITEM_FMT = "<BBHIIII32s32s"
