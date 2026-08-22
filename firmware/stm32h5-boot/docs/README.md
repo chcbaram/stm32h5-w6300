@@ -4,23 +4,23 @@ STM32H563 용 UF2 / CDC / WebHID 부트로더. 구현 단계별로 번호를 붙
 
 각 문서는 **목적 → 대상 파일 → 설계 결정과 근거 → 함정/주의사항 → 검증 방법 → 실측 결과** 순서를 따른다.
 
-| 문서 | 내용 | 상태 |
-|---|---|---|
-| [00-memory-map.md](00-memory-map.md) | 플래시/슬롯 배치, 태그 포맷 | 확정 |
-| [01-project-skeleton.md](01-project-skeleton.md) | 디렉토리, CMake, 링커스크립트 | 완료 |
-| [02-hw-layer.md](02-hw-layer.md) | hw_def.h, 이식한 드라이버 | 완료 |
-| [03-flash-driver.md](03-flash-driver.md) | STM32H5 플래시 함정 전수 | 완료 |
-| 04-reset-doubleclick.md | 리셋 카운트, POR/PIN 구분 | 예정 |
-| 05-boot-jump.md | 검증/점프, VTOR·MSP 책임 분담 | 예정 |
-| 06-usb-composite.md | TinyUSB MSC+CDC+HID | 예정 |
-| 07-uf2.md | UF2 파싱, FAT16 가상 디스크 | 예정 |
-| 08-slot-pingpong.md | 슬롯 선택 규칙, 롤백 | 예정 |
-| 09-fault-recovery.md | 폴트 카운터, 부트 이벤트 로그 | 예정 |
-| 09b-power-loss.md | 전원 손실 강건성 | 예정 |
-| 10-cmd-protocol.md | 패킷 포맷, CDC/HID 채널 | 예정 |
-| 11-webhid-updater.md | WebHID 업데이터 | 예정 |
-| 12-app-changes.md | 앱 측 변경 목록 | 예정 |
-| 13-test.md | 호스트/타깃 테스트 | 예정 |
+| 문서 | 내용 |
+|---|---|
+| [STATUS.md](STATUS.md) | **현재 진행 상황 · 개발 환경 · 실기에서 잡은 함정** |
+| [00-memory-map.md](00-memory-map.md) | 플래시/슬롯 배치, 태그 포맷 |
+| [01-project-skeleton.md](01-project-skeleton.md) | 디렉토리, CMake, 링커스크립트 |
+| [02-hw-layer.md](02-hw-layer.md) | hw_def.h, 이식한 드라이버 |
+| [03-flash-driver.md](03-flash-driver.md) | STM32H5 플래시 함정 전수 |
+| [04-reset-doubleclick.md](04-reset-doubleclick.md) | 리셋 카운트, POR/PIN 구분 |
+| [05-boot-jump.md](05-boot-jump.md) | 검증/점프, VTOR·MSP 책임 분담 |
+| [06-usb-composite.md](06-usb-composite.md) | TinyUSB MSC+CDC+HID |
+| [07-uf2.md](07-uf2.md) | UF2 파싱, FAT16 가상 디스크 |
+| [08-slot-pingpong.md](08-slot-pingpong.md) | 슬롯 선택 규칙, 롤백 |
+| [09-fault-recovery.md](09-fault-recovery.md) | 폴트 카운터, 부트 이벤트 로그 |
+| [09b-power-loss.md](09b-power-loss.md) | 전원 손실 강건성 |
+| [12-app-changes.md](12-app-changes.md) | 앱 측 변경 목록 |
+| [13-test.md](13-test.md) | 호스트/타깃 테스트 |
+| [14-roadmap.md](14-roadmap.md) | **남은 설계와 결정 근거** |
 
 호스트 유닛 테스트는 하드웨어 없이 돈다.
 
