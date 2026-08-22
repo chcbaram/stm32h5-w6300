@@ -22,6 +22,12 @@ STM32H563 용 UF2 / CDC / WebHID 부트로더. 구현 단계별로 번호를 붙
 | 12-app-changes.md | 앱 측 변경 목록 | 예정 |
 | 13-test.md | 호스트/타깃 테스트 | 예정 |
 
+호스트 유닛 테스트는 하드웨어 없이 돈다.
+
+```bash
+cd firmware/stm32h5-boot/test/host && ./run.sh
+```
+
 ## 빌드
 
 ```bash
@@ -30,15 +36,54 @@ cmake -S . -B build
 cmake --build build -j8
 ```
 
-## 플래시
+## 플래시 / 디버그
 
-macOS 12 에서는 STM32CubeCLT 1.22 가 동작하지 않는다(Qt 가 macOS 13 이상 요구).
-**1.21.0 을 쓴다.**
+VSCode 태스크(`Cmd+Shift+P` -> Tasks: Run Task)와 디버그 구성이 준비되어 있다.
+태스크는 `Build - ` / `Flash - ` / `Device - ` / `Test - ` / `Setup - ` / `App - `
+접두어로 묶여 있다.
+
+### pyocd (권장)
+
+STM32H5 는 pyocd 내장 타겟이 아니므로 **CMSIS-Pack 을 한 번 설치**해야 한다.
+
+```bash
+pyocd pack install stm32h563ritx          # 태스크: Setup - pyocd install pack
+pyocd flash -t stm32h563ritx --frequency 4000000 \
+      --base-address 0x08000000 build/stm32h5-w6300-boot.bin
+```
+
+정확한 품번은 **STM32H563RITx** 다(`stm32h5-cube/stm32h5-w6300.ioc` 의 `Mcu.Name`).
+
+### STM32CubeCLT
+
+macOS 12 에서는 CLT 1.22 가 실행되지 않는다(Qt 가 macOS 13 이상 요구). **1.21.0 을 쓴다.**
 
 ```bash
 PROG=/opt/ST/STM32CubeCLT_1.21.0/STM32CubeProgrammer/bin/STM32_Programmer_CLI
 $PROG -c port=SWD mode=UR -w build/stm32h5-w6300-boot.bin 0x08000000 -v
 ```
+
+### 디버그
+
+`launch.json` 에 세 가지가 있다.
+
+| 구성 | 용도 |
+|---|---|
+| Debug (pyocd) | 빌드 -> 플래시 -> `main` 정지 |
+| Attach (pyocd) | 돌고 있는 펌웨어에 붙는다(플래시 안 함) |
+| Debug (ST-LINK GDB server) | STM32CubeCLT 의 gdbserver 사용 |
+
+### OpenOCD 는 쓰지 않는다
+
+확인 결과 이 조합으로는 동작하지 않는다.
+
+- OpenOCD 0.12.0(homebrew)에 **STM32H5 플래시 드라이버(`stm32h5x`)가 없다.**
+  바이너리에서 `stm32f1x/f2x/h7x/l4x/lx` 만 확인된다. 즉 플래시 자체가 불가능하다.
+- 디버그 attach 도 실패한다. 보유한 ST-LINK V2(V2J45M30)는 `dap` 전송을 지원하지
+  않아 `hla_swd` 로 붙어야 하는데, Cortex-M33 타겟 examination 이 실패한다.
+
+pyocd 는 CMSIS-Pack 으로 플래시·디버그가 모두 정상 동작하므로 pyocd 와 ST-LINK
+GDB server 만 쓴다.
 
 ## CLI
 

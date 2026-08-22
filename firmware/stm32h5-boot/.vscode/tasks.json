@@ -1,0 +1,103 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      // macOS 12 에서는 STM32CubeCLT 1.22 가 실행되지 않는다(Qt 가 macOS 13 이상 요구).
+      "CUBECLT": "/opt/ST/STM32CubeCLT_1.21.0",
+      "PYOCD_TARGET": "stm32h563ritx"
+    }
+  },
+  "tasks": [
+    {
+      "label": "Build - build",
+      "type": "shell",
+      "detail": "부트로더 빌드. build/ 는 반드시 프로젝트 루트 바로 아래여야 한다(링커 옵션이 -T../src/... 상대경로다).",
+      "command": "cmake -S . -B build && cmake --build build -j8",
+      "windows": { "command": "cmake -S . -B build -G 'MinGW Makefiles'; cmake --build build -j8" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Build - clean",
+      "type": "shell",
+      "command": "cmake --build build --target clean",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build - rebuild",
+      "type": "shell",
+      "command": "rm -rf build && cmake -S . -B build && cmake --build build -j8",
+      "problemMatcher": ["$gcc"]
+    },
+
+    {
+      "label": "Flash - pyocd",
+      "type": "shell",
+      "detail": "부트로더를 0x08000000 에 굽는다. 처음이면 'Setup - pyocd install pack' 을 먼저 실행한다.",
+      "command": "pyocd flash -t ${env:PYOCD_TARGET} --frequency 4000000 --base-address 0x08000000 build/stm32h5-w6300-boot.bin",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Flash - STM32_Programmer_CLI",
+      "type": "shell",
+      "detail": "ST 정품 툴로 굽는다. verify 까지 한다.",
+      "command": "${env:CUBECLT}/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=SWD mode=UR -w build/stm32h5-w6300-boot.bin 0x08000000 -v -rst",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Device - reset",
+      "type": "shell",
+      "command": "${env:CUBECLT}/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=SWD mode=UR -rst",
+      "problemMatcher": []
+    },
+    {
+      "label": "Device - erase all",
+      "type": "shell",
+      "detail": "전체 소거. 부트로더/앱/슬롯/부트로그가 모두 지워진다.",
+      "command": "${env:CUBECLT}/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=SWD mode=UR -e all",
+      "problemMatcher": []
+    },
+    {
+      "label": "Device - monitor boot log",
+      "type": "shell",
+      "detail": "ST-LINK VCP 로 부팅 로그를 본다. 리셋 버튼 더블클릭 확인용.",
+      "command": "python3 test/target/monitor.py 30",
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Test - host unit",
+      "type": "shell",
+      "detail": "하드웨어 없이 도는 유닛 테스트. 목 플래시 + 전원 손실 전수 시뮬레이션.",
+      "command": "./test/host/run.sh",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+
+    {
+      "label": "Setup - pyocd install pack",
+      "type": "shell",
+      "detail": "STM32H5 는 pyocd 내장 타겟이 아니다. CMSIS-Pack 을 한 번 설치해야 flash/debug 가 된다.",
+      "command": "pyocd pack install ${env:PYOCD_TARGET}",
+      "problemMatcher": []
+    },
+
+    {
+      "label": "App - build + uf2",
+      "type": "shell",
+      "detail": "앱을 빌드하면 .uf2 가 함께 나온다. 부트 모드에서 H5BOOT 드라이브에 복사하면 갱신된다.",
+      "command": "cd ../stm32h5-fw && cmake -S . -B build && cmake --build build -j8 && ls -l build/*.uf2",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "App - flash via UF2",
+      "type": "shell",
+      "detail": "부트 모드(리셋 더블클릭)에서 H5BOOT 드라이브에 복사한다. 슬롯 핑퐁과 롤백이 동작하는 정상 경로다.",
+      "command": "cp ../stm32h5-fw/build/*.uf2 /Volumes/H5BOOT/ && echo '복사 완료. 부트로더가 적용 후 재부팅한다.'",
+      "problemMatcher": []
+    }
+  ]
+}

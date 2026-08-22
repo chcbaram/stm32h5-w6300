@@ -1,34 +1,96 @@
 {
-	"version": "2.0.0",
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      // macOS 12 에서는 STM32CubeCLT 1.22 가 실행되지 않는다(Qt 가 macOS 13 이상 요구).
+      "CUBECLT": "/opt/ST/STM32CubeCLT_1.21.0",
+      "PYOCD_TARGET": "stm32h563ritx"
+    }
+  },
   "tasks": [
     {
-      "label": "build-configure",
+      "label": "Build - build",
       "type": "shell",
-      "windows":{
-        "command": "cmake -S . -B build -G 'MinGW Makefiles'" ,
-      },
-      "command": "cmake -S . -B build",
-      "problemMatcher": []
-    },  
-    {
-      "label": "build-build",
-      "type": "shell",
-      "windows":{
-        "command": "cmake -S . -B build -G 'MinGW Makefiles'; cmake --build build -j20",
-      },
-      "command": "cmake -S . -B build; cmake --build build -j20",    
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
+      "detail": "앱 빌드. .bin 과 .uf2 가 함께 나온다.",
+      "command": "cmake -S . -B build && cmake --build build -j8",
+      "windows": { "command": "cmake -S . -B build -G 'MinGW Makefiles'; cmake --build build -j8" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
     },
     {
-      "label": "build-clean",
+      "label": "Build - clean",
       "type": "shell",
       "command": "cmake --build build --target clean",
-      "problemMatcher": [],
-    }, 
+      "problemMatcher": []
+    },
+    {
+      "label": "Build - rebuild",
+      "type": "shell",
+      "command": "rm -rf build && cmake -S . -B build && cmake --build build -j8",
+      "problemMatcher": ["$gcc"]
+    },
 
+    {
+      "label": "Flash - via UF2 (권장)",
+      "type": "shell",
+      "detail": "부트 모드(리셋 더블클릭)에서 H5BOOT 드라이브에 복사한다. 슬롯 핑퐁과 롤백이 동작하는 정상 경로다.",
+      "command": "cp build/*.uf2 /Volumes/H5BOOT/ && echo '복사 완료. 부트로더가 적용 후 재부팅한다.'",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Flash - pyocd (SWD 직접)",
+      "type": "shell",
+      "detail": "앱을 0x08020400 에 직접 굽는다. TAG(0x08020000)가 없어 부트로더 검증에 실패하므로 개발 중 임시용이다.",
+      "command": "pyocd flash -t ${env:PYOCD_TARGET} --frequency 4000000 --base-address 0x08020400 build/stm32h5-w6300-fw.bin",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Flash - STM32_Programmer_CLI (SWD 직접)",
+      "type": "shell",
+      "detail": "위와 동일. TAG 까지 만들려면 ../stm32h5-boot/test/target/mkimage.py 를 쓴다.",
+      "command": "${env:CUBECLT}/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=SWD mode=UR -w build/stm32h5-w6300-fw.bin 0x08020400 -v -rst",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Device - reset",
+      "type": "shell",
+      "command": "${env:CUBECLT}/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=SWD mode=UR -rst",
+      "problemMatcher": []
+    },
+    {
+      "label": "Device - monitor boot log",
+      "type": "shell",
+      "detail": "ST-LINK VCP 로 부팅 로그를 본다.",
+      "command": "python3 ../stm32h5-boot/test/target/monitor.py 30",
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Setup - pyocd install pack",
+      "type": "shell",
+      "detail": "STM32H5 는 pyocd 내장 타겟이 아니다. CMSIS-Pack 을 한 번 설치해야 flash/debug 가 된다.",
+      "command": "pyocd pack install ${env:PYOCD_TARGET}",
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Boot - build",
+      "type": "shell",
+      "detail": "부트로더를 빌드한다.",
+      "command": "cd ../stm32h5-boot && cmake -S . -B build && cmake --build build -j8",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Boot - flash",
+      "type": "shell",
+      "detail": "부트로더를 0x08000000 에 굽는다.",
+      "command": "cd ../stm32h5-boot && pyocd flash -t ${env:PYOCD_TARGET} --frequency 4000000 --base-address 0x08000000 build/stm32h5-w6300-boot.bin",
+      "dependsOn": "Boot - build",
+      "problemMatcher": []
+    }
   ]
 }

@@ -4,7 +4,7 @@
     {
       "name": "Debug (pyocd)",
       "cwd": "${workspaceFolder}",
-      "executable": "./build/stm32h5-w6300-fw.elf",
+      "executable": "./build/stm32h5-w6300-boot.elf",
       "request": "launch",
       "type": "cortex-debug",
       "servertype": "pyocd",
@@ -14,12 +14,12 @@
       "preLaunchTask": "build",
       "showDevDebugOutput": "none",
       "svdFile": "/opt/ST/STM32CubeCLT_1.21.0/STMicroelectronics_CMSIS_SVD/STM32H563.svd",
-      "//": "처음 한 번 'pyocd: install pack' 태스크가 필요하다."
+      "//": "STM32H5 는 pyocd 내장 타겟이 아니다. 처음 한 번 'pyocd: install pack' 태스크를 돌려야 한다."
     },
     {
       "name": "Attach (pyocd)",
       "cwd": "${workspaceFolder}",
-      "executable": "./build/stm32h5-w6300-fw.elf",
+      "executable": "./build/stm32h5-w6300-boot.elf",
       "request": "attach",
       "type": "cortex-debug",
       "servertype": "pyocd",
@@ -27,17 +27,18 @@
       "interface": "swd",
       "showDevDebugOutput": "none",
       "svdFile": "/opt/ST/STM32CubeCLT_1.21.0/STMicroelectronics_CMSIS_SVD/STM32H563.svd",
-      "//": "부트로더가 점프시킨 앱에 붙을 때 쓴다. 플래시를 다시 굽지 않는다."
+      "//": "이미 돌고 있는 펌웨어에 붙는다. 플래시를 다시 굽지 않는다."
     },
     {
       "name": "Debug (ST-LINK GDB server)",
-      "cwd": "${workspaceRoot}",
-      "executable": "./build/stm32h5-w6300-fw.elf",
+      "cwd": "${workspaceFolder}",
+      "executable": "./build/stm32h5-w6300-boot.elf",
       "request": "launch",
       "type": "cortex-debug",
       "servertype": "stlink",
       "serverArgs": ["-m", "1"],
       "runToEntryPoint": "main",
+      "preLaunchTask": "build",
       "showDevDebugOutput": "none",
       "osx": {
         "serverpath": "/opt/ST/STM32CubeCLT_1.21.0/STLink-gdb-server/bin/ST-LINK_gdbserver",
@@ -48,7 +49,24 @@
         "serverpath": "C:/ST/STM32CubeCLT_1.21.0/STLink-gdb-server/bin/ST-LINK_gdbserver.exe",
         "stm32cubeprogrammer": "C:/ST/STM32CubeCLT_1.21.0/STM32CubeProgrammer/bin",
         "svdFile": "C:/ST/STM32CubeCLT_1.21.0/STMicroelectronics_CMSIS_SVD/STM32H563.svd"
-      }
+      },
+      "//": "macOS 12 에서는 CLT 1.22 가 실행되지 않는다(Qt 가 macOS 13 이상 요구). 1.21.0 을 쓴다."
+    },
+    {
+      "name": "Debug App (ST-LINK GDB server)",
+      "cwd": "${workspaceFolder}/../stm32h5-fw",
+      "executable": "../stm32h5-fw/build/stm32h5-w6300-fw.elf",
+      "request": "attach",
+      "type": "cortex-debug",
+      "servertype": "stlink",
+      "serverArgs": ["-m", "1"],
+      "showDevDebugOutput": "none",
+      "osx": {
+        "serverpath": "/opt/ST/STM32CubeCLT_1.21.0/STLink-gdb-server/bin/ST-LINK_gdbserver",
+        "stm32cubeprogrammer": "/opt/ST/STM32CubeCLT_1.21.0/STM32CubeProgrammer/bin",
+        "svdFile": "/opt/ST/STM32CubeCLT_1.21.0/STMicroelectronics_CMSIS_SVD/STM32H563.svd"
+      },
+      "//": "부트로더가 앱으로 점프한 뒤 앱을 디버깅할 때 쓴다. 앱은 0x08020400 에 있다."
     }
   ]
 }
