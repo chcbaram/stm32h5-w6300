@@ -1,0 +1,245 @@
+#include "bsp.h"
+#include "hw_def.h"
+#include "cli.h"
+#ifdef _USE_HW_USB
+#include "usb.h"
+#endif
+
+static void mpuInit(void);
+static void SystemClock_Config(void);
+
+
+
+
+bool bspInit(void)
+{
+  bool ret = true;
+
+
+  #ifdef _USE_HW_CACHE
+  SCB_EnableICache();
+  SCB_EnableDCache();
+  #endif  
+
+  HAL_Init();
+
+
+  SystemClock_Config();
+
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+
+
+  // 부트로더는 ICACHE/DCACHE 를 켜지 않는다.
+  //  - 128KB 부트로더에 성능이 필요 없다.
+  //  - 플래시 소거/기록 후 캐시 무효화를 빠뜨려 옛 데이터를 읽는 버그 클래스를
+  //    통째로 없앨 수 있다. (ST 예제도 플래시 조작 전후로 ICACHE 를 껐다 켠다)
+
+  mpuInit();
+
+  return ret;
+}
+
+bool bspDeInit(void)
+{
+#ifdef _USE_HW_USB
+  usbDeInit();
+  HAL_Delay(50);
+#endif
+
+  __disable_irq();
+
+  // 보류 중인 인터럽트까지 확실히 지운다. ICPR 을 빠뜨리면 앱이 인터럽트를
+  // 켜는 순간 부트로더 시절의 보류 인터럽트가 앱 벡터로 튄다.
+  //
+  for (int i=0; i<(int)(sizeof(NVIC->ICER)/sizeof(uint32_t)); i++)
+  {
+    NVIC->ICER[i] = 0xFFFFFFFF;
+    NVIC->ICPR[i] = 0xFFFFFFFF;
+  }
+  __DSB();
+  __ISB();
+
+  SysTick->CTRL = 0;
+  SysTick->LOAD = 0;
+  SysTick->VAL  = 0;
+
+  HAL_MPU_Disable();
+  __DSB();
+  __ISB();
+
+  // RCC 는 되돌리지 않는다. 앱의 SystemInit() 이 RCC 를 리셋 상태로 復元한다.
+  // 여기서 클럭을 내리면 앱 SystemInit() 실행 자체가 위태로워진다.
+
+  __enable_irq();
+  return true;
+}
+
+void delay(uint32_t ms)
+{
+#ifdef _USE_HW_RTOS
+  if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)
+  {
+    osDelay(ms);
+  }
+  else
+  {
+    HAL_Delay(ms);
+  }
+#else
+  uint32_t tickstart = millis();
+  uint32_t wait      = ms;
+
+  /* Add a freq to guarantee minimum wait */
+  if (wait < HAL_MAX_DELAY)
+  {
+    wait += (uint32_t)(uwTickFreq);
+  }
+
+  while ((millis() - tickstart) < wait)
+  {
+    cliLoopIdle();
+  }
+#endif
+}
+
+void delayUs(uint32_t delay_us)
+{
+  uint32_t pre_time = micros();
+  
+  while(micros()-pre_time <= delay_us)
+  {
+    //
+  } 
+}
+
+uint32_t millis(void)
+{
+  return HAL_GetTick();
+}
+
+uint32_t micros(void)
+{
+  uint32_t       m0  = millis();
+  __IO uint32_t  u0  = SysTick->VAL;
+  uint32_t       m1  = millis();
+  __IO uint32_t  u1  = SysTick->VAL;
+  const uint32_t tms = SysTick->LOAD + 1;
+
+  if (m1 != m0)
+  {
+    return (m1 * 1000 + ((tms - u1) * 1000) / tms);
+  }
+  else
+  {
+    return (m0 * 1000 + ((tms - u0) * 1000) / tms);
+  }
+}
+
+void Error_Handler(void)
+{
+  if (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk)  
+  { 
+    __BKPT(0);
+  }
+    
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
+
+  while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
+
+  /** Configure LSE Drive Capability
+  *  Warning : Only applied when the LSE is disabled.
+  */
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_LSE
+                              |RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLL1_SOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 2;
+  RCC_OscInitStruct.PLL.PLLN = 40;
+  RCC_OscInitStruct.PLL.PLLP = 2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLR = 2;
+  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1_VCIRANGE_3;
+  RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1_VCORANGE_WIDE;
+  RCC_OscInitStruct.PLL.PLLFRACN = 0;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
+                              |RCC_CLOCKTYPE_PCLK3;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB3CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure the programming delay
+  */
+  __HAL_FLASH_SET_PROGRAM_DELAY(FLASH_PROGRAMMING_DELAY_2);
+}
+
+static void mpuInit(void)
+{
+  MPU_Region_InitTypeDef MPU_InitStruct;
+  MPU_Attributes_InitTypeDef   MPU_AttributesInit;
+
+  /* Disable MPU before perloading and config update */
+  HAL_MPU_Disable();
+
+  /* Define cacheable memory via MPU */
+  MPU_AttributesInit.Number             = MPU_ATTRIBUTES_NUMBER0;
+  MPU_AttributesInit.Attributes         = MPU_NOT_CACHEABLE;
+  HAL_MPU_ConfigMemoryAttributes(&MPU_AttributesInit);
+
+  /* Configure FLASH region as REGION Number 0 */
+  MPU_InitStruct.Enable           = MPU_REGION_ENABLE;
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER0;
+  MPU_InitStruct.AttributesIndex  = MPU_ATTRIBUTES_NUMBER0;
+  MPU_InitStruct.BaseAddress      = (uint32_t) 0x08FFF800;
+  MPU_InitStruct.LimitAddress     = (uint32_t) 0x08FFF80C;
+  MPU_InitStruct.AccessPermission = MPU_REGION_ALL_RO;
+  MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable      = MPU_ACCESS_NOT_SHAREABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* Enable the MPU */
+  HAL_MPU_Enable(MPU_HFNMI_PRIVDEF);
+}

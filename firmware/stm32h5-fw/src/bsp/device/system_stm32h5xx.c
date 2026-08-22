@@ -196,6 +196,8 @@
   * @retval None
   */
 
+extern uint32_t _fw_flash_begin;
+
 void SystemInit(void)
 {
   uint32_t reg_opsr;
@@ -254,7 +256,11 @@ void SystemInit(void)
   #ifdef VECT_TAB_SRAM
     SCB->VTOR = SRAM1_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal SRAM */
   #else
-    SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal FLASH */
+    /* 부트로더가 VTOR/MSP 를 건드리지 않고 Reset_Handler 로 바로 점프하므로,
+       벡터테이블 위치는 앱이 스스로 설정한다.
+       _fw_flash_begin 은 링커스크립트의 VECTOR 영역 시작(=0x08020400)이다.
+       MSP 는 Reset_Handler 의 ldr sp, =_estack 이 설정한다. */
+    SCB->VTOR = (uint32_t)&_fw_flash_begin;
   #endif /* VECT_TAB_SRAM */
 
   /* Check OPSR register to verify if there is an ongoing swap or option bytes update interrupted by a reset */

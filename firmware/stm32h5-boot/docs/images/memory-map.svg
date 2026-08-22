@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1064" height="779.2" viewBox="0 0 1064 779.2" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+<style>
+  .bank{font-size:15px;font-weight:700;fill:#6b7684}
+  .nm {font-size:16px;font-weight:700;fill:#ffffff}
+  .nm2{font-size:13px;font-weight:700;fill:#ffffff}
+  .sz {font-size:13px;font-weight:600;fill:#ffffff}
+  .ad {font-size:11.5px;fill:#ffffff;opacity:.88}
+  .nt {font-size:11.5px;fill:#ffffff;opacity:.80}
+  .tgo{font-size:12px;font-weight:700;fill:#ffffff}
+  .tg {font-size:12px;fill:#ffffff}
+  .adx{font-size:11.5px;fill:#7d8590}
+  @media (prefers-color-scheme: dark){ .bank{fill:#adb9c7} .adx{fill:#8b949e} }
+</style>
+<text x="34" y="58" class="bank">Bank 1  0x08000000~0x080FFFFF  app executes here</text>
+<rect x="34" y="84.0" width="470" height="51.2" fill="#3d5a80" stroke="#11151a" stroke-width="1.4" rx="4"/>
+<text x="50" y="104.0" class="nm">BOOT</text>
+<text x="488" y="104.0" class="sz" text-anchor="end">128 KB</text>
+<text x="50" y="121.0" class="ad">0x08000000</text>
+<text x="488" y="121.0" class="ad" text-anchor="end">B1 0-15</text>
+<rect x="34" y="135.2" width="470" height="179.2" fill="#2a9d8f" stroke="#11151a" stroke-width="1.4" rx="4"/>
+<text x="50" y="159.2" class="nm">FIRM</text>
+<text x="488" y="159.2" class="sz" text-anchor="end">448 KB</text>
+<text x="50" y="178.2" class="ad">0x08020000</text>
+<text x="488" y="178.2" class="ad" text-anchor="end">B1 16-71</text>
+<text x="50" y="196.2" class="nt">TAG 1K + VEC 1K + VER 1K + code</text>
+<rect x="34" y="314.4" width="470" height="179.2" fill="#8d99ae" stroke="#11151a" stroke-width="1.4" rx="4"/>
+<text x="50" y="338.4" class="nm">reserved</text>
+<text x="488" y="338.4" class="sz" text-anchor="end">448 KB</text>
+<text x="50" y="357.4" class="ad">0x08090000</text>
+<text x="488" y="357.4" class="ad" text-anchor="end">B1 72-127</text>
+<text x="50" y="375.4" class="nt">future littlefs / read-mostly</text>
+<text x="34" y="510.6" class="adx">0x08100000</text>
+<text x="560" y="58" class="bank">Bank 2  0x08100000~0x081FFFFF  RWW-safe for app</text>
+<rect x="560" y="84.0" width="470" height="179.2" fill="#e76f51" stroke="#11151a" stroke-width="1.4" rx="4"/>
+<text x="576" y="108.0" class="nm">SLOT0</text>
+<text x="1014" y="108.0" class="sz" text-anchor="end">448 KB</text>
+<text x="576" y="127.0" class="ad">0x08100000</text>
+<text x="1014" y="127.0" class="ad" text-anchor="end">B2 0-55</text>
+<text x="576" y="145.0" class="nt">TAG 1K + image</text>
+<rect x="560" y="263.2" width="470" height="179.2" fill="#f4a261" stroke="#11151a" stroke-width="1.4" rx="4"/>
+<text x="576" y="287.2" class="nm">SLOT1</text>
+<text x="1014" y="287.2" class="sz" text-anchor="end">448 KB</text>
+<text x="576" y="306.2" class="ad">0x08170000</text>
+<text x="1014" y="306.2" class="ad" text-anchor="end">B2 56-111</text>
+<text x="576" y="324.2" class="nt">TAG 1K + image</text>
+<rect x="560" y="442.4" width="470" height="30.0" fill="#8367c7" stroke="#11151a" stroke-width="1.4" rx="4"/>
+<text x="576" y="462.4" class="nm2">BOOT_LOG</text>
+<text x="710" y="462.4" class="ad">0x081E0000</text>
+<text x="1014" y="462.4" class="ad" text-anchor="end">16 KB  ·  B2 112-113</text>
+<rect x="560" y="472.4" width="470" height="44.8" fill="#6c757d" stroke="#11151a" stroke-width="1.4" rx="4"/>
+<text x="576" y="492.4" class="nm">NVS</text>
+<text x="1014" y="492.4" class="sz" text-anchor="end">112 KB</text>
+<text x="576" y="509.4" class="ad">0x081E4000</text>
+<text x="1014" y="509.4" class="ad" text-anchor="end">B2 114-127</text>
+<text x="560" y="534.2" class="adx">0x08200000</text>
+<text x="34" y="570.2" class="bank">Slot / FIRM  TAG area (first 1 KB)  -  write order</text>
+<rect x="34" y="588.2" width="996" height="30" fill="#c1121f" stroke="#11151a" stroke-width="1.2" rx="4"/>
+<text x="50" y="608.2" class="tgo">0x000</text>
+<text x="114" y="608.2" class="tg">firm_tag_t   magic | fw_addr | fw_size | fw_crc</text>
+<text x="1014" y="608.2" class="tg" text-anchor="end">16 B   (3) COMMIT - written last, atomic</text>
+<rect x="34" y="621.2" width="996" height="30" fill="#e07a5f" stroke="#11151a" stroke-width="1.2" rx="4"/>
+<text x="50" y="641.2" class="tgo">0x010</text>
+<text x="114" y="641.2" class="tg">firm_tag_t   tag_crc + padding</text>
+<text x="1014" y="641.2" class="tg" text-anchor="end">16 B   (2)</text>
+<rect x="34" y="654.2" width="996" height="30" fill="#8367c7" stroke="#11151a" stroke-width="1.2" rx="4"/>
+<text x="50" y="674.2" class="tgo">0x020</text>
+<text x="114" y="674.2" class="tg">boot_slot_t  magic | seq | flags | crc</text>
+<text x="1014" y="674.2" class="tg" text-anchor="end">16 B   (1) written first</text>
+<rect x="34" y="687.2" width="996" height="30" fill="#4a5568" stroke="#11151a" stroke-width="1.2" rx="4"/>
+<text x="50" y="707.2" class="tgo">0x030</text>
+<text x="114" y="707.2" class="tg">invalid marker</text>
+<text x="1014" y="707.2" class="tg" text-anchor="end">16 B   written on slot invalidate</text>
+<rect x="34" y="720.2" width="996" height="30" fill="#8d99ae" stroke="#11151a" stroke-width="1.2" rx="4"/>
+<text x="50" y="740.2" class="tgo">0x040</text>
+<text x="114" y="740.2" class="tg">reserved</text>
+<text x="1014" y="740.2" class="tg" text-anchor="end">960 B   </text>
+</svg>

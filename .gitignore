@@ -19,3 +19,7 @@ CMakeUserPresets.json
 #cmake-build-*
 build
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc

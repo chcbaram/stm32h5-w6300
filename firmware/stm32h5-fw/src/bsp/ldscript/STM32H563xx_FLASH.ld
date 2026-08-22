@@ -47,9 +47,12 @@ MEMORY
   NO_INIT   (xrw) : ORIGIN = 0x20000000, LENGTH = 8K
   RAM       (xrw) : ORIGIN = 0x20002000, LENGTH = 640K-8K
 
-  VECTOR     (rx) : ORIGIN = 0x08000000, LENGTH = 1K
-  VER        (rx) : ORIGIN = 0x08000400, LENGTH = 1K  
-  FLASH      (rx) : ORIGIN = 0x08000800, LENGTH = 1024K-2K
+  /* 부트로더(0x08000000, 128KB) 뒤에 배치된다.
+     FLASH_ADDR_FIRM = 0x08020000 이고 그 앞 1KB 는 부트로더가 기록하는 TAG 이므로
+     앱 이미지는 0x08020400 부터 시작한다. TAG 는 앱 bin 에 포함되면 안 된다. */
+  VECTOR     (rx) : ORIGIN = 0x08020400, LENGTH = 1K
+  VER        (rx) : ORIGIN = 0x08020800, LENGTH = 1K
+  FLASH      (rx) : ORIGIN = 0x08020C00, LENGTH = 448K-3K
 }
 
 /* Sections */
