@@ -11,6 +11,7 @@
 #include "boot/boot.h"
 #ifdef _USE_HW_WIZNET
 #include "net/net_disc.h"
+#include "net/net_http.h"
 #endif
 #ifdef _USE_HW_CMD
 #include "cmd/cmd_task.h"

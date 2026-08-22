@@ -55,6 +55,35 @@
       "problemMatcher": []
     },
     {
+      "label": "Flash - TCP download (이더넷 OTA)",
+      "type": "shell",
+      "detail": "이더넷으로 올린다. 보드 IP 는 'Net - scan' 으로 찾는다. 슬롯에 받아두고 리셋하면 부트로더가 적용한다.",
+      "command": "python3 tools/download/download.py --tcp ${input:boardIp}",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Net - scan (보드 찾기)",
+      "type": "shell",
+      "detail": "LAN 의 보드를 찾아 IP 를 보여준다. 브로드캐스트 비컨이라 한 패킷이면 끝난다.",
+      "command": "python3 tools/net/discover.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Net - scan & open (웹페이지 열기)",
+      "type": "shell",
+      "detail": "보드를 찾아 목록에서 고르면 그 보드의 웹페이지를 브라우저로 연다. 한 대만 찾으면 바로 연다.",
+      "command": "python3 tools/net/discover.py --open",
+      "problemMatcher": []
+    },
+    {
+      "label": "Net - fake board (스캔 시험용)",
+      "type": "shell",
+      "detail": "가짜 보드로 응답한다. 보드가 하나뿐일 때 스캔이 되는지 확인하는 용도. Ctrl-C 로 종료.",
+      "command": "python3 tools/net/discover.py --serve",
+      "problemMatcher": []
+    },
+    {
       "label": "Flash - pyocd (SWD 직접)",
       "type": "shell",
       "detail": "앱을 0x08020400 에 직접 굽는다. TAG(0x08020000)가 없어 부트로더 검증에 실패하므로 개발 중 임시용이다.",
@@ -107,6 +136,14 @@
       "command": "cd ../stm32h5-boot && pyocd flash -t ${env:PYOCD_TARGET} --frequency 4000000 --base-address 0x08000000 build/stm32h5-w6300-boot.bin",
       "dependsOn": "Boot - build",
       "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "boardIp",
+      "type": "promptString",
+      "description": "보드 IP (Net - scan 으로 찾는다)",
+      "default": "172.30.1.57"
     }
   ]
 }

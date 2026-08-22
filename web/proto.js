@@ -36,9 +36,9 @@ export function buildPacket(cmd, data = new Uint8Array(0), type = PKT_TYPE_CMD) 
 //   갈아끼울 수 있게 해둔다. 지금은 HID 하나지만 나중에 W6300 네트워크(WebSocket)가
 //   붙는다.
 //
-//   주의: GitHub Pages 는 https 라서 브라우저가 http/ws 로의 접속을 mixed content 로
-//         차단한다. 네트워크 전송을 쓰려면 페이지를 보드가 직접 서빙하거나
-//         http://localhost 로 열어야 한다.
+//   주의: GitHub Pages 는 https 라서 브라우저가 http 로의 접속을 mixed content 로
+//         차단한다. 그래서 네트워크 전송은 **보드가 직접 서빙한 페이지**에서만
+//         쓴다. 그때는 같은 출처라 제약이 없다.
 //
 export class Channel {
   async send(bytes)        { throw new Error('not implemented'); }
@@ -116,3 +116,67 @@ export class HidChannel extends Channel {
 
 export const str32 = (u8, off) =>
   new TextDecoder().decode(u8.slice(off, off + 32)).split('\0')[0].trim();
+
+
+//-- 보드가 서빙한 페이지에서 쓰는 전송.
+//
+//   POST /cmd 한 번에 요청 패킷을 싣고 응답 패킷을 받는다. cmd 가 원래
+//   요청/응답이라 그대로 맞아떨어진다.
+//
+//   WebSocket 을 쓰지 않은 이유는 펌웨어 net_http.c 의 주석에 적어뒀다 -
+//   업그레이드 핸드셰이크와 프레이밍이 MCU 쪽에 200줄쯤 더 붙는데, 얻는 것은
+//   서버 푸시뿐이고 지금은 필요가 없다.
+//
+export class HttpChannel extends Channel {
+  constructor(base = '') {
+    super();
+    this.base = base;
+    this._rx = new Uint8Array(0);
+  }
+
+  //   Channel.request() 의 폴링 루프를 쓰지 않는다. POST 는 한 번에 끝나므로
+  //   응답을 바로 파싱하는 편이 빠르고 단순하다.
+  async request(cmd, data, timeoutMs = 8000) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+
+    let res;
+    try {
+      res = await fetch(`${this.base}/cmd`, {
+        method: 'POST',
+        body: buildPacket(cmd, data || new Uint8Array(0)),
+        signal: ac.signal,
+      });
+    } catch (e) {
+      throw new Error(`cmd 0x${cmd.toString(16).padStart(4, '0')} 전송 실패: ${e.message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const rx = new Uint8Array(await res.arrayBuffer());
+    for (let i = 0; i + 9 <= rx.length; i++) {
+      if (rx[i] !== 0x02 || rx[i + 1] !== 0xFD) continue;
+      const dv = new DataView(rx.buffer, rx.byteOffset + i);
+      const err = dv.getUint16(5, true);
+      const len = dv.getUint16(7, true);
+      if (rx.length - i < 9 + len + 1) break;
+      return { err, data: rx.slice(i + 9, i + 9 + len) };
+    }
+    throw new Error(`cmd 0x${cmd.toString(16).padStart(4, '0')} 응답을 못 읽었다`);
+  }
+
+  async send()  { throw new Error('HttpChannel 은 request() 만 쓴다'); }
+  takeRx()      { return new Uint8Array(0); }
+}
+
+//-- 이 페이지를 보드가 서빙했는가.
+//
+//   http 로 열렸고 호스트가 IPv4 면 보드로 본다. GitHub Pages(https)와
+//   개발용 localhost 는 여기에 걸리지 않으므로 HID 로 간다.
+//
+export function isBoardHosted() {
+  return location.protocol === 'http:' &&
+         /^\d{1,3}(\.\d{1,3}){3}$/.test(location.hostname);
+}

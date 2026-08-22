@@ -13,6 +13,7 @@ void apInit(void)
 #endif
 #ifdef _USE_HW_WIZNET
   netDiscInit();
+  netHttpInit();
 #endif
   moduleInit();
 }
@@ -72,6 +73,7 @@ void update(void const *arg)
 #endif
 #ifdef _USE_HW_WIZNET
   netDiscUpdate();      // 다른 보드의 질의에 항상 답할 수 있어야 한다
+  netHttpUpdate();
 #endif
 }
 

@@ -120,11 +120,10 @@ export function mount(ctx) {
 //   HTTPS(GitHub Pages)에서 http://보드IP 로 fetch/WebSocket 은 mixed content 로
 //   막히지만 **최상위 이동은 허용**된다. 그래서 새 탭으로 여는 방식이다.
 //
-//   다만 아직 보드에 웹서버가 없다(14-roadmap.md C). 지킬 수 없는 링크를 그려
-//   놓으면 눌렀을 때 연결 거부만 보게 되므로, 서버가 생길 때까지는 그렇게
-//   알린다. C 를 구현하면 BOARD_HTTP 를 true 로 바꾸고 링크가 살아난다.
+//   보드에 웹서버가 생겼다(net_http.c). 그 페이지는 같은 출처라 mixed content
+//   제약 없이 POST /cmd 로 바로 말을 건다.
 //
-const BOARD_HTTP = false;
+const BOARD_HTTP = true;
 
 function openCell(b) {
   if (!BOARD_HTTP)

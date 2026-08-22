@@ -76,6 +76,16 @@
       <span id="devState" class="muted">연결되지 않음</span>
       <span id="devMode" class="badge" hidden></span>
     </div>
+    <!-- 브라우저는 네트워크를 훑을 수 없고, https 페이지에서 http://보드IP 로
+         요청도 걸 수 없다(mixed content). 다만 최상위 이동은 허용되므로 IP 를
+         알면 보드가 서빙하는 페이지로 바로 갈 수 있다. 거기서는 같은 출처라
+         스캔·업데이트·CLI 가 전부 된다. -->
+    <div class="row" id="ipRow" style="margin-top:10px">
+      <span class="muted small">IP 를 알면 바로</span>
+      <input type="text" id="ipAddr" placeholder="192.168.0.10"
+             autocomplete="off" spellcheck="false" style="width:150px">
+      <button id="btnIpOpen" class="small">보드 페이지 열기</button>
+    </div>
   </div>
 
   <nav id="tabs"></nav>
@@ -85,7 +95,7 @@
 </div>
 
 <script type="module">
-import { HidChannel } from './web/proto.js';
+import { HidChannel, HttpChannel, isBoardHosted } from './web/proto.js';
 import { BOOT_CMD, parseInfo, DEV_MODE_BOOT } from './web/boot.js';
 import * as firmware from './web/panels/firmware.js';
 import * as board    from './web/panels/board.js';
@@ -137,6 +147,10 @@ function buildTabs() {
     b.textContent = p.title;
     b.dataset.id = p.id;
     b.onclick = () => selectPanel(p);
+    // 버튼을 새로 만들었으니 지금 보고 있는 탭 표시도 다시 붙인다.
+    // 이걸 selectPanel() 에만 맡기면, current 가 그대로일 때(연결 직후 등)
+    // selectPanel 이 불리지 않아 어느 탭도 선택돼 보이지 않는다.
+    b.classList.toggle('on', current !== null && current.id === p.id);
     $('tabs').appendChild(b);
   }
   if (!list.includes(current)) selectPanel(list[0]);
@@ -158,6 +172,27 @@ function showMode() {
 }
 
 async function connect() {
+  //-- 보드가 서빙한 페이지면 장치 선택창이 필요 없다.
+  //
+  //   같은 출처라 POST /cmd 로 바로 말을 건다. GitHub Pages(https)에서는
+  //   http 로 나가는 요청이 mixed content 로 막히므로 이 경로를 쓸 수 없고,
+  //   그때는 아래 WebHID 로 간다.
+  //
+  if (isBoardHosted()) {
+    if (channel) channel.detach();
+    channel = new HttpChannel();
+    $('devState').textContent = `${location.hostname} (네트워크)`;
+    $('devState').className = 'ok';
+    $('btnRefresh').disabled = false;
+
+    devInfo = parseInfo((await channel.request(BOOT_CMD.INFO)).data);
+    log(`연결: ${devInfo.name} ${devInfo.version} (보드가 서빙한 페이지)`, 'ok');
+    showMode();
+    buildTabs();
+    await refreshAll();
+    return;
+  }
+
   const list = await navigator.hid.requestDevice({
     filters: [{ vendorId: VID, productId: PID, usagePage: 0xFF00 }]
   });
@@ -185,6 +220,29 @@ async function refreshAll() {
 }
 
 $('btnConnect').onclick = () => connect().catch(e => log(`연결 실패: ${e.message}`, 'err'));
+
+//-- IP 로 바로 가기.
+//
+//   USB 없이 보드를 다루는 유일한 길이다. 한 번만 IP 를 알면 그 뒤로는 보드가
+//   서빙한 페이지에서 스캔까지 되므로 다른 보드도 거기서 찾을 수 있다.
+//
+const openByIp = () => {
+  const ip = $('ipAddr').value.trim();
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+    log('IPv4 주소를 입력한다. 예: 192.168.0.10', 'err');
+    return;
+  }
+  localStorage.setItem('lastIp', ip);
+  window.open(`http://${ip}/`, '_blank', 'noopener');
+};
+
+$('btnIpOpen').onclick = openByIp;
+$('ipAddr').onkeydown  = (e) => { if (e.key === 'Enter') openByIp(); };
+
+try {
+  const last = localStorage.getItem('lastIp');
+  if (last) $('ipAddr').value = last;
+} catch (e) { /* 사생활 보호 모드 등에서 막힐 수 있다 */ }
 $('btnRefresh').onclick = () => refreshAll().catch(e => log(`조회 실패: ${e.message}`, 'err'));
 
 navigator.hid?.addEventListener('disconnect', (e) => {
@@ -206,7 +264,13 @@ navigator.hid?.addEventListener('disconnect', (e) => {
 buildTabs();
 selectPanel(PANELS[0]);
 
-if (!('hid' in navigator)) {
+//-- 보드가 서빙한 페이지면 바로 붙는다. 고를 장치가 하나뿐이라 물어볼 것이 없다.
+if (isBoardHosted()) {
+  $('ipRow').hidden = true;         // 이미 보드에 와 있다
+  $('btnConnect').hidden = true;
+  log('보드가 서빙한 페이지다. 네트워크로 바로 연결한다.', 'muted');
+  connect().catch(e => log(`연결 실패: ${e.message}`, 'err'));
+} else if (!('hid' in navigator)) {
   log('이 브라우저는 WebHID 를 지원하지 않는다. Chrome 또는 Edge 를 쓴다.', 'err');
   $('btnConnect').disabled = true;
 }

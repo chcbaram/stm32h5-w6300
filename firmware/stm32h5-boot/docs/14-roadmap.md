@@ -103,7 +103,9 @@ mixed content 는 서브리소스와 fetch/WS 만 막는다. 주소창 경고는
 
 ---
 
-## C. 보드 자체 웹서버
+## C. 보드 자체 웹서버  ✅ 완료
+
+> 구현 완료. WebSocket 대신 HTTP POST 로 갔다. 이유와 결과는 `19-board-webserver.md`.
 
 ### 결정
 

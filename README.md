@@ -39,14 +39,22 @@ firmware/stm32h5-boot/docs/ 설계 문서. 시작은 STATUS.md
 전부 **같은 슬롯에 같은 태그 포맷**으로 기록되므로, 어느 경로로 넣든 슬롯 핑퐁과
 자동 롤백이 동일하게 동작한다.
 
-## 보드 찾기
+## 보드 찾기 / 보드 자체 웹페이지
 
 ```bash
-python3 firmware/stm32h5-fw/tools/net/discover.py
+python3 firmware/stm32h5-fw/tools/net/discover.py          # IP 만 보기
+python3 firmware/stm32h5-fw/tools/net/discover.py --open   # 골라서 웹페이지 열기
 ```
 
-웹페이지의 `LAN 의 보드 → 스캔` 은 같은 일을 **보드가** 한다. 브라우저는 네트워크를
-직접 훑을 수 없기 때문이다.
+보드는 자기 웹페이지도 서빙한다(`http://<보드IP>/`). 그 페이지는 **같은 출처**라
+USB 없이 네트워크만으로 업데이트·CLI·스캔이 다 된다.
+
+GitHub Pages 는 https 라 `http://보드IP` 로 요청을 걸 수 없다(mixed content).
+그래서 **첫 한 걸음**만 밖에서 떼어주면 된다 — USB 로 붙이거나, 위 스크립트로
+열거나, 페이지 상단에 IP 를 직접 입력한다.
+
+브라우저는 네트워크를 직접 훑을 수 없으므로, 웹페이지의 `LAN 의 보드 → 스캔` 은
+같은 일을 **보드가** 대신 한다.
 
 ## 문서
 

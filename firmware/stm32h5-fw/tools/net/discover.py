@@ -2,6 +2,7 @@
 """LAN 안의 보드를 찾는다. 그리고 가짜 보드를 띄운다.
 
   python3 discover.py                 # 스캔만
+  python3 discover.py --open          # 찾은 보드를 골라 웹페이지를 연다
   python3 discover.py --serve         # 가짜 보드로 응답만 (보드 스캔 시험용)
   python3 discover.py --serve --name FAKE-BOARD-1 --ip 192.168.0.99
 
@@ -15,6 +16,7 @@ import socket
 import struct
 import sys
 import uuid
+import webbrowser
 
 PORT      = 5300
 MAGIC_REQ = 0x51445242      # "BRDQ"
@@ -134,6 +136,8 @@ def main():
     ap.add_argument("--ip",      default=None, help="가짜 보드가 알릴 IP (기본: 이 PC)")
     ap.add_argument("--mode",    type=int, default=1, help="0=BOOT, 1=APP")
     ap.add_argument("--timeout", type=float, default=2.0)
+    ap.add_argument("--open", action="store_true", dest="do_open",
+                    help="찾은 보드를 골라 웹페이지를 연다")
     args = ap.parse_args()
 
     if args.serve:
@@ -145,11 +149,45 @@ def main():
         print("찾은 보드가 없다.")
         sys.exit(1)
 
-    print(f"{len(found)} 대\n")
-    print(f"{'IP':<16} {'MODE':<5} {'NAME':<24} {'VERSION':<16} MAC")
-    for ip, b in sorted(found.items()):
-        print(f"{ip:<16} {MODE.get(b['mode'], '?'):<5} "
+    items = sorted(found.items())
+
+    print(f"{len(items)} 대\n")
+    print(f"{'':<4}{'IP':<16} {'MODE':<5} {'NAME':<24} {'VERSION':<16} MAC")
+    for i, (ip, b) in enumerate(items, 1):
+        num = f"{i})" if args.do_open else ""
+        print(f"{num:<4}{ip:<16} {MODE.get(b['mode'], '?'):<5} "
               f"{b['name']:<24} {b['version']:<16} {b['mac']}")
+
+    if not args.do_open:
+        return
+
+    #-- 웹페이지 열기.
+    #
+    #   브라우저는 네트워크를 훑을 수 없고 https 페이지에서 http://보드IP 로
+    #   요청도 걸 수 없다. 그래서 "첫 한 걸음" 은 이렇게 밖에서 떼어준다.
+    #   보드가 서빙한 페이지에 들어가면 같은 출처라 스캔·업데이트·CLI 가 다 된다.
+    #
+    if len(items) == 1:
+        sel = 0
+        print(f"\n한 대뿐이라 바로 연다.")
+    else:
+        try:
+            ans = input(f"\n열 보드 번호 (1-{len(items)}, Enter=1, q=취소): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        if ans.lower() == "q":
+            return
+        if ans == "":
+            sel = 0
+        elif ans.isdigit() and 1 <= int(ans) <= len(items):
+            sel = int(ans) - 1
+        else:
+            sys.exit("번호가 올바르지 않다.")
+
+    url = f"http://{items[sel][0]}/"
+    print(f"연다: {url}")
+    webbrowser.open(url)
 
 
 if __name__ == "__main__":
