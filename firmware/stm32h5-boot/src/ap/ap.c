@@ -18,6 +18,9 @@ void apInit(void)
 #ifdef _USE_HW_USB
   uf2Init();
 #endif
+#ifdef _USE_HW_CMD
+  cmdTaskInit();
+#endif
   moduleInit();
 }
 
@@ -236,6 +239,9 @@ void update(void const *arg)
 #ifdef _USE_HW_USB
   usbUpdate();
   uf2Update();
+#endif
+#ifdef _USE_HW_CMD
+  cmdTaskUpdate();
 #endif
   updateLed();
 }

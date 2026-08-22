@@ -61,6 +61,9 @@
 #define _USE_HW_GPIO
 #define      HW_GPIO_MAX_CH         GPIO_PIN_MAX
 
+#define _USE_HW_CMD
+#define      HW_CMD_MAX_DATA_LENGTH 1024
+
 #define _USE_HW_USB
 #define _USE_HW_CDC
 #define      HW_USE_CDC             1

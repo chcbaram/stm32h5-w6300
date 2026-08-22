@@ -77,6 +77,7 @@ target_include_directories(${EXECUTABLE} PRIVATE
   src/ap
   src/ap/modules
   src/ap/modules/common
+  src/ap/modules/cmd
   src/bsp
   src/bsp/device
   src/common
