@@ -39,6 +39,22 @@
       "problemMatcher": []
     },
     {
+      "label": "Flash - CDC download (cmd)",
+      "type": "shell",
+      "detail": "부트 모드에서 USB CDC 로 다운로드한다. UF2 와 같은 슬롯/태그를 쓰므로 핑퐁과 롤백이 동일하게 동작한다.",
+      "command": "python3 tools/download/download.py",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Flash - HID download (cmd)",
+      "type": "shell",
+      "detail": "위와 동일하되 WebHID 와 같은 HID 채널을 쓴다. hidapi 필요.",
+      "command": "python3 tools/download/download.py --hid",
+      "dependsOn": "Build - build",
+      "problemMatcher": []
+    },
+    {
       "label": "Flash - pyocd (SWD 직접)",
       "type": "shell",
       "detail": "앱을 0x08020400 에 직접 굽는다. TAG(0x08020000)가 없어 부트로더 검증에 실패하므로 개발 중 임시용이다.",

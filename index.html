@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STM32H5-W6300</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1f2328; --muted:#59636e; --line:#d1d9e0;
+    --accent:#0969da; --ok:#1a7f37; --err:#cf222e; --card:#f6f8fa;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#3d444d;
+           --accent:#4493f8; --ok:#3fb950; --err:#f85149; --card:#151b23; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:15px/1.6 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:820px;margin:0 auto;padding:28px 20px 64px}
+  h1{font-size:21px;margin:0 0 2px}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:13.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;
+        padding:14px 16px;margin:0 0 14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;padding:7px 15px;border-radius:6px;border:1px solid var(--line);
+         background:var(--bg);color:var(--fg);cursor:pointer}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.small{padding:3px 10px;font-size:13px}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  nav{display:flex;gap:4px;margin:0 0 14px;border-bottom:1px solid var(--line)}
+  nav button{border:none;background:none;border-bottom:2px solid transparent;
+             border-radius:0;padding:8px 14px;color:var(--muted)}
+  nav button.on{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:13px;
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600}
+  progress{width:100%;height:8px;margin-top:10px}
+  #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+       white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
+  .ok{color:var(--ok)} .err{color:var(--err)} .muted{color:var(--muted)}
+  .small{font-size:13px}
+  .warn{border-left:3px solid var(--accent);padding-left:12px;margin:0 0 18px;
+        color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>STM32H5-W6300</h1>
+  <p class="sub">WebHID 로 보드에 직접 연결한다. 펌웨어 갱신과 보드 상태 확인.</p>
+
+  <p class="warn">
+    Chrome 또는 Edge 가 필요하다 (WebHID 미지원 브라우저에서는 동작하지 않는다).<br>
+    펌웨어를 갱신하려면 보드의 <b>리셋 버튼을 빠르게 두 번</b> 눌러 부트로더로 진입한 뒤 연결한다.
+  </p>
+
+  <div class="card">
+    <div class="row">
+      <button id="btnConnect" class="primary">장치 연결</button>
+      <button id="btnRefresh" disabled>새로고침</button>
+      <span id="devState" class="muted">연결되지 않음</span>
+    </div>
+  </div>
+
+  <nav id="tabs"></nav>
+  <div id="panel"></div>
+
+  <div class="card"><pre id="log"></pre></div>
+</div>
+
+<script type="module">
+import { HidChannel } from './web/proto.js';
+import * as firmware from './web/panels/firmware.js';
+import * as board    from './web/panels/board.js';
+
+const VID = 0xCAFE, PID = 0xB003;
+const PANELS = [firmware, board];
+
+const $ = (id) => document.getElementById(id);
+let device = null, channel = null, current = null;
+
+function log(msg, cls) {
+  const el = $('log');
+  el.innerHTML += cls ? `<span class="${cls}">${msg}</span>\n` : `${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+const ctx = { $, log, channel: () => channel };
+
+function selectPanel(p) {
+  current = p;
+  $('panel').innerHTML = p.render();
+  p.mount(ctx);
+  [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.id === p.id));
+  if (channel) p.refresh(ctx).catch(e => log(`${p.title}: ${e.message}`, 'err'));
+}
+
+function buildTabs() {
+  $('tabs').innerHTML = '';
+  for (const p of PANELS) {
+    const b = document.createElement('button');
+    b.textContent = p.title;
+    b.dataset.id = p.id;
+    b.onclick = () => selectPanel(p);
+    $('tabs').appendChild(b);
+  }
+}
+
+async function connect() {
+  const list = await navigator.hid.requestDevice({
+    filters: [{ vendorId: VID, productId: PID, usagePage: 0xFF00 }]
+  });
+  if (!list.length) { log('장치를 선택하지 않았다.', 'muted'); return; }
+
+  device = list[0];
+  if (!device.opened) await device.open();
+  if (channel) channel.detach();
+  channel = new HidChannel(device);
+
+  $('devState').textContent = device.productName || '연결됨';
+  $('devState').className = 'ok';
+  $('btnRefresh').disabled = false;
+  log(`연결: ${device.productName}`, 'ok');
+  await refreshAll();
+}
+
+async function refreshAll() {
+  if (current) await current.refresh(ctx);
+}
+
+$('btnConnect').onclick = () => connect().catch(e => log(`연결 실패: ${e.message}`, 'err'));
+$('btnRefresh').onclick = () => refreshAll().catch(e => log(`조회 실패: ${e.message}`, 'err'));
+
+navigator.hid?.addEventListener('disconnect', (e) => {
+  if (e.device === device) {
+    log('장치 분리됨', 'muted');
+    $('devState').textContent = '연결되지 않음';
+    $('devState').className = 'muted';
+    $('btnRefresh').disabled = true;
+    if (channel) channel.detach();
+    channel = null;
+  }
+});
+
+buildTabs();
+selectPanel(PANELS[0]);
+
+if (!('hid' in navigator)) {
+  log('이 브라우저는 WebHID 를 지원하지 않는다. Chrome 또는 Edge 를 쓴다.', 'err');
+  $('btnConnect').disabled = true;
+}
+</script>
+</body>
+</html>

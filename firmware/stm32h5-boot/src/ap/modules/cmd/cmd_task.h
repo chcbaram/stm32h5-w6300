@@ -12,7 +12,7 @@ bool cmdTaskUpdate(void);
 
 // 채널 드라이버
 extern cmd_driver_t cmd_usb_driver;
-#if defined(HW_USE_HID) && HW_USE_HID == 1 && defined(CMD_USE_HID)
+#if defined(HW_USE_HID) && HW_USE_HID == 1
 extern cmd_driver_t cmd_hid_driver;
 #endif
 

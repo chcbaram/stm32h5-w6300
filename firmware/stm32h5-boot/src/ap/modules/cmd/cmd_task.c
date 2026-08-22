@@ -16,7 +16,7 @@ typedef struct
 static cmd_ch_t cmd_ch[] =
 {
   { "USB CDC", {0}, &cmd_usb_driver },
-#if defined(HW_USE_HID) && HW_USE_HID == 1 && defined(CMD_USE_HID)
+#if defined(HW_USE_HID) && HW_USE_HID == 1
   { "USB HID", {0}, &cmd_hid_driver },
 #endif
 };
