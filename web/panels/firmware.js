@@ -29,7 +29,7 @@ export function render() {
       <div class="row">
         <input type="file" id="fwFile" accept=".bin">
         <button id="fwGo" class="primary" disabled>업데이트</button>
-        <button id="fwBoot" class="small" hidden>부트로더로 재진입</button>
+        <button id="fwBoot" class="small" hidden></button>
       </div>
       <progress id="fwProg" value="0" max="100" hidden></progress>
     </div>
@@ -49,6 +49,7 @@ export function render() {
 }
 
 let fwData = null;
+let bootMode = null;      // 마지막으로 확인한 실행 모드
 
 //-- 기록 시각. 보드에 코인셀이 없어 RTC 를 모르는 구간이 있다.
 //   그때 펌웨어는 0 을 남기고, 여기서는 '-' 로 보여준다.
@@ -92,12 +93,19 @@ export function mount(ctx) {
 
   $('fwGo').onclick = () => update(ctx).catch(e => log(`실패: ${e.message}`, 'err'));
 
-  // 앱에서만 의미가 있다. 리셋 버튼을 물리적으로 두 번 누르는 대신 쓴다.
+  //-- FW_JUMP(0x0009) 는 양쪽에서 "반대편으로 넘어간다" 는 뜻이다.
+  //
+  //     부트로더 : 앱으로 점프      -> "펌웨어 실행"
+  //     앱       : resetToBoot()    -> "부트로더로 재진입"
+  //
+  //   그래서 커맨드는 하나이고 라벨만 모드에 따라 바뀐다.
   $('fwBoot').onclick = async () => {
     const ch = channel();
     if (!ch) return;
     await ch.request(BOOT_CMD.FW_JUMP, null, 3000).catch(() => {});
-    log('부트로더로 재진입한다. 장치가 다시 열거되면 연결을 누른다.', 'muted');
+    log(bootMode === DEV_MODE_BOOT
+          ? '펌웨어를 실행한다. 장치가 다시 열거되면 연결을 누른다.'
+          : '부트로더로 재진입한다. 장치가 다시 열거되면 연결을 누른다.', 'muted');
   };
   $('fwLogGet').onclick = () => readLog(ctx).catch(e => log(`로그 읽기 실패: ${e.message}`, 'err'));
 }
@@ -115,7 +123,11 @@ export async function refresh({ $, channel, isActive }) {
   const v = parseVersion(rv.data, info.slotMax);
 
   if (!isActive(id)) return;          // 기다리는 동안 탭이 바뀌었다
-  $('fwBoot').hidden = (info.mode !== DEV_MODE_APP);
+
+  bootMode = info.mode;
+  $('fwBoot').textContent = (info.mode === DEV_MODE_BOOT)
+    ? '펌웨어 실행' : '부트로더로 재진입';
+  $('fwBoot').hidden = false;
   resetLogTable($);                   // 이전 연결의 목록을 남기지 않는다
 
   const row = (label, it) => it.valid

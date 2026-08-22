@@ -171,3 +171,40 @@ def parse_version(d, slot_max=2):
     w, p, r, _ = struct.unpack("<bbbb", d[ITEM_SZ*(slot_max+1):ITEM_SZ*(slot_max+1)+4])
     out.update(write_slot=w, pending_slot=p, rollback_slot=r)
     return out
+
+
+class TcpTransport:
+    """이더넷 OTA. 펌웨어 쪽은 ap/modules/cmd/driver/drv_tcp.c 다.
+
+    CDC/HID 와 같은 커맨드 셋이라 download.py 는 전송계층만 갈아끼우면 된다."""
+
+    PORT = 5301
+
+    def __init__(self, host, port=None, timeout=5.0):
+        import socket
+        self.sock = socket.create_connection((host, port or self.PORT), timeout=timeout)
+        self.sock.settimeout(timeout)
+
+    def flush_input(self):
+        import socket
+        self.sock.setblocking(False)
+        try:
+            while self.sock.recv(4096):
+                pass
+        except (BlockingIOError, socket.timeout):
+            pass
+        finally:
+            self.sock.setblocking(True)
+
+    def write(self, b):
+        self.sock.sendall(b)
+
+    def read(self, n):
+        import socket
+        try:
+            return self.sock.recv(n)
+        except socket.timeout:
+            return b""
+
+    def close(self):
+        self.sock.close()

@@ -2,9 +2,10 @@
 //
 //   지금은 INFO 가 보고하는 플래시 배치만 보여준다. 부트로더와 앱 모두
 //   같은 커맨드로 답하므로 패널은 하나면 된다.
-//   IP/MAC 같은 네트워크 정보는 전용 커맨드를 추가한 뒤 여기에 붙인다.
+//   네트워크(BOOT_CMD_NET)와 시각(BOOT_CMD_RTC), LAN 스캔(BOOT_CMD_NET_SCAN)이
+//   여기에 붙어 있다.
 //
-import { BOOT_CMD, parseInfo, parseNet, DEV_MODE_BOOT, DEV_MODE_APP,
+import { BOOT_CMD, parseInfo, parseNet, parseScan, DEV_MODE_BOOT, DEV_MODE_APP,
          RTC_OP_GET, RTC_OP_SET, epochToText, localEpoch } from '../boot.js';
 
 export const id    = 'board';
@@ -31,6 +32,24 @@ export function render() {
     </div>
 
     <div class="card">
+      <div class="row"><b>LAN 의 보드</b>
+        <button id="bdScan" class="small">스캔</button>
+        <span class="muted small" id="bdScanCnt"></span></div>
+      <div class="tbl-scroll" style="max-height:220px">
+        <table><thead><tr>
+          <th>IP</th><th>모드</th><th>이름</th><th>버전</th><th>MAC</th><th></th>
+        </tr></thead>
+        <tbody id="bdScanTbl">
+          <tr><td colspan="6" class="muted">스캔을 누른다</td></tr>
+        </tbody></table>
+      </div>
+      <p class="muted small" style="margin:8px 0 0">
+        브라우저는 네트워크를 직접 훑을 수 없다. USB 로 붙은 이 보드가 대신
+        브로드캐스트를 던지고 응답한 보드를 모아 돌려준다.
+      </p>
+    </div>
+
+    <div class="card">
       <div class="row"><b>보드 시각</b>
         <button id="bdRtcGet" class="small">읽기</button>
         <button id="bdRtcSet" class="small">PC 시간과 맞추기</button>
@@ -47,8 +66,8 @@ export function render() {
       </p>
     </div>
     <div class="card muted small">
-      네트워크(IP/MAC/DHCP)와 하드웨어 정보, 기능 테스트는 전용 커맨드를
-      추가한 뒤 이 패널에 붙인다. 그 전까지는 CLI 패널에서 확인한다.
+      하드웨어 정보와 기능 테스트는 전용 커맨드를 추가한 뒤 여기에 붙인다.
+      그 전까지는 CLI 패널에서 확인한다.
     </div>`;
 }
 
@@ -84,6 +103,7 @@ export function mount(ctx) {
   $('bdRtcSet').onclick = () => syncRtc(ctx).catch(e => log(`시각 동기화 실패: ${e.message}`, 'err'));
   $('bdRtcAuto').onchange = (e) => { if (!e.target.checked) stopAuto(); else startAuto(ctx); };
   $('bdNetGet').onclick   = () => readNet(ctx).catch(e => log(`네트워크 읽기 실패: ${e.message}`, 'err'));
+  $('bdScan').onclick     = () => scanNet(ctx).catch(e => log(`스캔 실패: ${e.message}`, 'err'));
 
   startAuto(ctx);
 }
@@ -95,6 +115,45 @@ export function mount(ctx) {
 //   content). 다만 **최상위 이동은 허용**되므로 새 탭으로 여는 것은 된다.
 //   그 뒤로는 보드 자체 웹서버가 상대한다.
 //
+//-- LAN 스캔.
+//
+//   보드가 800ms 동안 응답을 모으므로 타임아웃을 넉넉히 준다.
+//   자기 자신도 목록에 들어간다 - 지금 USB 로 붙어 있는 보드다.
+//
+async function scanNet(ctx) {
+  const { $, channel, isActive } = ctx;
+  const ch = channel();
+  if (!ch) return;
+
+  $('bdScan').disabled = true;
+  $('bdScanCnt').textContent = '스캔 중...';
+  try {
+    const r = await ch.request(BOOT_CMD.NET_SCAN, null, 8000);
+    if (r.err) throw new Error(`SCAN err=0x${r.err.toString(16)}`);
+
+    const list = parseScan(r.data);
+    if (!isActive(id)) return;
+
+    // 지금 USB 로 붙어 있는 보드가 어느 것인지 표시하려고 자기 IP 를 받아둔다.
+    const self = parseNet((await ch.request(BOOT_CMD.NET)).data).ip;
+    if (!isActive(id)) return;
+
+    $('bdScanCnt').textContent = `${list.length} 대`;
+    $('bdScanTbl').innerHTML = list.length === 0
+      ? '<tr><td colspan="6" class="muted">응답한 보드가 없다</td></tr>'
+      : list.map(b => `<tr>
+          <td>${b.ip}</td>
+          <td>${b.mode === DEV_MODE_BOOT ? '부트로더' : '앱'}</td>
+          <td>${b.name}</td><td>${b.version}</td><td>${b.mac}</td>
+          <td>${b.ip === self
+                ? '<span class="muted">이 보드</span>'
+                : `<a href="http://${b.ip}/" target="_blank" rel="noopener">열기</a>`}</td>
+        </tr>`).join('');
+  } finally {
+    $('bdScan').disabled = false;
+  }
+}
+
 async function readNet(ctx) {
   const { $, channel, isActive } = ctx;
   const ch = channel();

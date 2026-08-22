@@ -23,6 +23,7 @@
 #define BOOT_CMD_CLI_MORE         0x0011
 #define BOOT_CMD_RTC              0x0012
 #define BOOT_CMD_NET              0x0013
+#define BOOT_CMD_NET_SCAN         0x0014
 
 #define BOOT_RTC_OP_GET           0
 #define BOOT_RTC_OP_SET           1
@@ -603,6 +604,32 @@ bool cmdBootProcess(cmd_t *p_cmd)
       }
 #endif
       cmdSendResp(p_cmd, cmd, CMD_OK, (uint8_t *)&net, sizeof(net));
+      break;
+    }
+
+    //-- LAN 스캔.
+    //
+    //   브라우저는 원시 네트워크 스캔을 할 수 없다. 그래서 USB 로 붙은 보드가
+    //   대신 훑는다(14-roadmap.md B). 800ms 쯤 걸리므로 호스트는 타임아웃을
+    //   넉넉히 잡아야 한다.
+    //
+    //   응답 : [0] 개수, [1..3] 예약, 그 뒤로 net_beacon_t 배열
+    //
+    case BOOT_CMD_NET_SCAN:
+    {
+#ifdef _USE_HW_WIZNET
+      static uint8_t resp[4 + NET_DISC_LIST_MAX * sizeof(net_beacon_t)];
+      uint8_t n;
+
+      memset(resp, 0, sizeof(resp));
+      n = netDiscScan((net_beacon_t *)&resp[4], NET_DISC_LIST_MAX, 800);
+      resp[0] = n;
+
+      cmdSendResp(p_cmd, cmd, CMD_OK, resp,
+                  (uint16_t)(4 + n * sizeof(net_beacon_t)));
+#else
+      cmdSendResp(p_cmd, cmd, ERR_BOOT_WRONG_CMD, NULL, 0);
+#endif
       break;
     }
 

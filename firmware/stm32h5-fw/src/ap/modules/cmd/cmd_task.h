@@ -15,6 +15,11 @@ extern cmd_driver_t drv_usb_driver;
 #if defined(HW_USE_HID) && HW_USE_HID == 1
 extern cmd_driver_t drv_hid_driver;
 #endif
+#ifdef _USE_HW_WIZNET
+extern cmd_driver_t drv_tcp_driver;
+void drvTcpUpdate(void);
+bool drvTcpIsConnected(void);
+#endif
 
 // 커맨드 처리
 bool cmdBootProcess(cmd_t *p_cmd);

@@ -19,6 +19,9 @@ static cmd_ch_t cmd_ch[] =
 #if defined(HW_USE_HID) && HW_USE_HID == 1
   { "USB HID", {0}, &drv_hid_driver },
 #endif
+#ifdef _USE_HW_WIZNET
+  { "TCP 5301", {0}, &drv_tcp_driver },
+#endif
 };
 
 #define CMD_CH_MAX  (sizeof(cmd_ch)/sizeof(cmd_ch[0]))
@@ -83,6 +86,9 @@ bool cmdTaskUpdate(void)
   static bool is_busy = false;
 
   drvCliUpdate();
+#ifdef _USE_HW_WIZNET
+  drvTcpUpdate();       // 소켓 상태 관리 + 수신분 끌어오기
+#endif
 
   if (is_busy)
     return false;

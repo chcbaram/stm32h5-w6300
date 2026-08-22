@@ -19,6 +19,7 @@ export const BOOT_CMD = {
   CLI_MORE:  0x0011,
   RTC:       0x0012,
   NET:       0x0013,
+  NET_SCAN:  0x0014,
 };
 
 export const ITEM_SIZE = 84;      // boot_ver_item_t
@@ -37,7 +38,8 @@ export const ERR_NO_PENDING = 0x0016;
 //   "통신 실패" 를 구분하기 위한 것이다.
 //
 export function parseNet(d) {
-  if (d.length < 32) throw new Error(`NET 응답이 짧다 (${d.length}B)`);
+  // boot_net_t = 4 + mac 6 + rsv 2 + ip/sn/gw/dns 4*4 = 28B
+  if (d.length < 28) throw new Error(`NET 응답이 짧다 (${d.length}B)`);
   const ip = (o) => `${d[o]}.${d[o+1]}.${d[o+2]}.${d[o+3]}`;
   const mac = [...d.slice(4, 10)].map(v => v.toString(16).toUpperCase().padStart(2, '0')).join(':');
   return {
@@ -48,6 +50,34 @@ export function parseNet(d) {
     mac,
     ip: ip(12), sn: ip(16), gw: ip(20), dns: ip(24),
   };
+}
+
+//-- LAN 스캔 결과 (BOOT_CMD_NET_SCAN 응답)
+//
+//   [0] 개수, [1..3] 예약, 그 뒤로 net_beacon_t(60B) 배열.
+//   펌웨어 src/ap/modules/net/net_disc.h 와 같은 배치여야 한다.
+//
+const BEACON_SIZE = 60;
+
+export function parseScan(d) {
+  if (d.length < 4) throw new Error(`SCAN 응답이 짧다 (${d.length}B)`);
+
+  const n = d[0];
+  const out = [];
+  const txt = (o, len) => new TextDecoder().decode(d.slice(o, o + len)).split('\0')[0];
+
+  for (let i = 0; i < n; i++) {
+    const b = 4 + i * BEACON_SIZE;
+    if (d.length < b + BEACON_SIZE) break;
+    out.push({
+      mode: d[b + 5],
+      ip:  `${d[b+8]}.${d[b+9]}.${d[b+10]}.${d[b+11]}`,
+      mac: [...d.slice(b + 12, b + 18)].map(v => v.toString(16).toUpperCase().padStart(2, '0')).join(':'),
+      name:    txt(b + 20, 24),
+      version: txt(b + 44, 16),
+    });
+  }
+  return out;
 }
 
 export const RTC_OP_GET = 0;

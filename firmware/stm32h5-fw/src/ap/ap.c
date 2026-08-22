@@ -11,6 +11,9 @@ void apInit(void)
 #ifdef _USE_HW_CMD
   cmdTaskInit();
 #endif
+#ifdef _USE_HW_WIZNET
+  netDiscInit();
+#endif
   moduleInit();
 }
 
@@ -66,6 +69,9 @@ void update(void const *arg)
   updateBootConfirm();
 #ifdef _USE_HW_CMD
   cmdTaskUpdate();
+#endif
+#ifdef _USE_HW_WIZNET
+  netDiscUpdate();      // 다른 보드의 질의에 항상 답할 수 있어야 한다
 #endif
 }
 

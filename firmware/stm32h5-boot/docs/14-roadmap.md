@@ -60,7 +60,9 @@ USBD_Start(&USBD_Device);
 
 ---
 
-## B. 웹에서 네트워크 보드 찾기 — 보드가 스캔한다
+## B. 웹에서 네트워크 보드 찾기 — 보드가 스캔한다  ✅ 완료
+
+> 구현 완료. 결과와 규약은 `18-lan-scan-tcp-ota.md` 를 본다.
 
 ### 결정
 
@@ -146,7 +148,9 @@ littlefs 는 쓰지 않는다. STM32H5 는 프로그램된 쿼드워드를 다�
 
 ---
 
-## E. 이더넷 OTA
+## E. 이더넷 OTA  ✅ 완료
+
+> 구현 완료. `drv_tcp.c` 하나로 끝났다. `18-lan-scan-tcp-ota.md` 를 본다.
 
 앱이 `bootGetWriteSlot()` 으로 주소를 얻어 슬롯에 직접 기록하고 `resetToUpdate()`.
 부트로더 쪽 코드는 이미 완성되어 있다. `cmd_udp.c` 드라이버만 추가하면 CDC/HID 와

@@ -25,9 +25,10 @@ HID 다운로드 / HID CLI / 폴트 자동 복구 / 슬롯 핑퐁 롤백.
 | + | HID CLI + 웹 CLI 패널 | ✅ |
 | 15 | **앱에 HID(ST composite) + cmd 채널** | ✅ 실기 검증 |
 | 16 | **보드 시각(RTC epoch)** — 부트 로그 시각 · 웹 동기화 | ✅ 실기 검증 |
-| 17 | **네트워크 상태 조회** — 웹에서 IP/MAC, 보드 웹페이지로 이동 | ✅ (케이블 연결 상태 확인은 남음) |
+| 17 | **네트워크 상태 조회** — 웹에서 IP/MAC, 보드 웹페이지로 이동 | ✅ 실기 검증 |
+| 18 | **LAN 스캔 + 이더넷 OTA(TCP)** | ✅ 가짜 보드로 양방향 검증 |
 
-**빌드**: 부트로더 85,832 B / 126 KB (66.5%) · 앱 167,080 B / 445 KB (36.7%)
+**빌드**: 부트로더 85,848 B / 126 KB (66.5%) · 앱 170,864 B / 445 KB (37.5%)
 **빌드 경고**: 세 빌드(앱·부트로더·호스트 테스트) 모두 0
 
 앱도 이제 부트로더와 **같은 VID/PID·같은 커맨드 셋**으로 열거된다. 웹페이지는
@@ -38,12 +39,13 @@ HID 다운로드 / HID CLI / 폴트 자동 복구 / 슬롯 핑퐁 롤백.
 
 우선순위 순. 설계 근거는 전부 `14-roadmap.md` 에 있다.
 
-1. **LAN 스캔** — 브라우저는 원시 스캔을 못 한다. USB 로 붙은 보드가 스캔해서
-   목록을 돌려준다 (`14-roadmap.md` B). `BOOT_CMD_NET(0x0013)` 에 스캔 시작/결과
-   조회를 더하면 된다. 상태 조회는 `17-network.md` 로 끝났다.
-2. **보드 자체 웹서버** — W6300 위 HTTP/WebSocket. 페이지는 뱅크1 예약 448KB 에
-   (`14-roadmap.md` C).
-3. NVS, 이더넷 OTA (`14-roadmap.md` D·E)
+1. **보드 자체 웹서버** — W6300 위 HTTP/WebSocket. 페이지는 뱅크1 예약 448KB 에
+   (`14-roadmap.md` C). 스캔 목록의 `열기` 가 그때 의미를 갖는다.
+2. **NVS 가상 EEPROM** (`14-roadmap.md` D)
+3. **부트 타임아웃** — 부트 모드에서 일정 시간 뒤 앱 실행. 조건(호스트 미연결일
+   때만)까지 정리했으나 사용자가 보류함
+
+LAN 스캔과 이더넷 OTA 는 `18-lan-scan-tcp-ota.md` 로 끝났다.
 
 ## 개발 환경 (실측으로 확정된 것들)
 
@@ -89,6 +91,12 @@ python3 tools/download/download.py <bin> --port <앱 CDC>
 #   115200 -> CLI (미니컴/터미널)
 #   그 외   -> cmd (download.py 는 921600)
 #   지금 누가 쥐고 있는지는 CLI 의 `usb info` 에서 CDC Owner 로 보인다
+
+# LAN 의 보드 찾기 / 이더넷으로 업데이트
+python3 firmware/stm32h5-fw/tools/net/discover.py                 # PC 가 스캔
+python3 firmware/stm32h5-fw/tools/net/discover.py --serve         # 가짜 보드(시험용)
+python3 firmware/stm32h5-fw/tools/download/download.py <bin> --tcp <IP>
+#   보드 CLI 에서는 `scan`
 
 # 보드 시각 (코인셀이 없어 전원을 뽑으면 지워진다)
 #   CLI      : rtc get info / rtc set date [y] [m] [d] / rtc set time [h] [m] [s]

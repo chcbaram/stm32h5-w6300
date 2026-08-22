@@ -12,7 +12,7 @@ UF2 드래그&드롭과 같은 슬롯에 같은 태그 포맷으로 기록되므
 import argparse, glob, os, struct, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cmdproto import (CmdChannel, SerialTransport, HidTransport,
+from cmdproto import (CmdChannel, SerialTransport, HidTransport, TcpTransport,
                       BOOT_CMD_FW_BEGIN, BOOT_CMD_FW_ERASE, BOOT_CMD_FW_WRITE,
                       BOOT_CMD_FW_END, BOOT_CMD_FW_VERIFY, BOOT_CMD_FW_UPDATE,
                       BOOT_CMD_VERSION, parse_version)
@@ -29,6 +29,10 @@ def find_default_bin():
 
 
 def open_channel(args):
+    if args.tcp:
+        print(f"TCP {args.tcp}:{TcpTransport.PORT}")
+        return CmdChannel(TcpTransport(args.tcp))
+
     if args.hid:
         return CmdChannel(HidTransport(vid=0xCAFE, pid=0xB003))
 
@@ -53,6 +57,8 @@ def main():
     ap.add_argument("binary", nargs="?", default=None)
     ap.add_argument("--port", default=None, help="CDC 시리얼 포트")
     ap.add_argument("--hid", action="store_true", help="HID 채널 사용")
+    ap.add_argument("--tcp", metavar="IP", default=None,
+                    help="이더넷 OTA. 보드 IP 를 준다 (discover.py 로 찾는다)")
     ap.add_argument("--no-jump", action="store_true", help="적용/점프 없이 슬롯 기록까지만")
     args = ap.parse_args()
 
