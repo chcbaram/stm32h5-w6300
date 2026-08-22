@@ -18,6 +18,7 @@ export const BOOT_CMD = {
   CLI:       0x0010,
   CLI_MORE:  0x0011,
   RTC:       0x0012,
+  NET:       0x0013,
 };
 
 export const ITEM_SIZE = 84;      // boot_ver_item_t
@@ -29,6 +30,25 @@ export const DEV_MODE_APP  = 1;
 
 //   "적용할 것이 없다" - 실패가 아니라 할 일 없음이다.
 export const ERR_NO_PENDING = 0x0016;
+
+//-- 네트워크 상태 (BOOT_CMD_NET 응답)
+//
+//   is_valid 가 0 이면 그 쪽에 이더넷이 없다(부트로더). "지원 안 함" 과
+//   "통신 실패" 를 구분하기 위한 것이다.
+//
+export function parseNet(d) {
+  if (d.length < 32) throw new Error(`NET 응답이 짧다 (${d.length}B)`);
+  const ip = (o) => `${d[o]}.${d[o+1]}.${d[o+2]}.${d[o+3]}`;
+  const mac = [...d.slice(4, 10)].map(v => v.toString(16).toUpperCase().padStart(2, '0')).join(':');
+  return {
+    valid: d[0] === 1,
+    link:  d[1] === 1,
+    dhcp:  d[2] === 1,
+    ipGet: d[3] === 1,
+    mac,
+    ip: ip(12), sn: ip(16), gw: ip(20), dns: ip(24),
+  };
+}
 
 export const RTC_OP_GET = 0;
 export const RTC_OP_SET = 1;

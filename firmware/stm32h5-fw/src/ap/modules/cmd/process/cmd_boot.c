@@ -22,6 +22,7 @@
 #define BOOT_CMD_CLI              0x0010
 #define BOOT_CMD_CLI_MORE         0x0011
 #define BOOT_CMD_RTC              0x0012
+#define BOOT_CMD_NET              0x0013
 
 #define BOOT_RTC_OP_GET           0
 #define BOOT_RTC_OP_SET           1
@@ -59,6 +60,25 @@ typedef struct
   char     name[32];
   char     version[32];
 } __attribute__((packed)) boot_ver_item_t;
+
+//-- 네트워크 상태. 앱에만 있다(부트로더는 이더넷을 올리지 않는다).
+//
+//   호스트가 보드의 IP 를 알아야 보드 자체 웹서버로 넘어갈 수 있다. 지금은
+//   조회만 하고, LAN 스캔은 여기에 커맨드를 더해 붙인다.
+//
+typedef struct
+{
+  uint8_t  is_valid;          // 0 이면 이 보드에 이더넷이 없다
+  uint8_t  is_link;
+  uint8_t  is_dhcp;
+  uint8_t  is_ip_get;
+  uint8_t  mac[6];
+  uint8_t  rsv[2];
+  uint8_t  ip[4];
+  uint8_t  sn[4];
+  uint8_t  gw[4];
+  uint8_t  dns[4];
+} __attribute__((packed)) boot_net_t;
 
 typedef struct
 {
@@ -549,6 +569,40 @@ bool cmdBootProcess(cmd_t *p_cmd)
 #else
       cmdSendResp(p_cmd, cmd, ERR_BOOT_WRONG_CMD, NULL, 0);
 #endif
+      break;
+    }
+
+    //-- 네트워크 상태 조회.
+    //
+    //   이더넷이 없는 쪽(부트로더)도 응답은 한다. is_valid = 0 으로 알려주면
+    //   호스트가 "지원 안 함" 과 "통신 실패" 를 구분할 수 있다.
+    //
+    case BOOT_CMD_NET:
+    {
+      boot_net_t net;
+
+      memset(&net, 0, sizeof(net));
+
+#ifdef _USE_HW_WIZNET
+      {
+        wiznet_info_t info;
+
+        net.is_valid  = 1;
+        net.is_link   = wiznetIsLink()  ? 1 : 0;
+        net.is_ip_get = wiznetIsGetIP() ? 1 : 0;
+
+        if (wiznetGetInfo(&info) == true)
+        {
+          net.is_dhcp = info.dhcp ? 1 : 0;
+          memcpy(net.mac, info.mac, sizeof(net.mac));
+          memcpy(net.ip,  info.ip,  sizeof(net.ip));
+          memcpy(net.sn,  info.sn,  sizeof(net.sn));
+          memcpy(net.gw,  info.gw,  sizeof(net.gw));
+          memcpy(net.dns, info.dns, sizeof(net.dns));
+        }
+      }
+#endif
+      cmdSendResp(p_cmd, cmd, CMD_OK, (uint8_t *)&net, sizeof(net));
       break;
     }
 

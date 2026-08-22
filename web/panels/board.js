@@ -4,7 +4,7 @@
 //   같은 커맨드로 답하므로 패널은 하나면 된다.
 //   IP/MAC 같은 네트워크 정보는 전용 커맨드를 추가한 뒤 여기에 붙인다.
 //
-import { BOOT_CMD, parseInfo, DEV_MODE_BOOT, DEV_MODE_APP,
+import { BOOT_CMD, parseInfo, parseNet, DEV_MODE_BOOT, DEV_MODE_APP,
          RTC_OP_GET, RTC_OP_SET, epochToText, localEpoch } from '../boot.js';
 
 export const id    = 'board';
@@ -17,6 +17,15 @@ export function render() {
   return `
     <div class="card">
       <table><tbody id="bdTbl">
+        <tr><td colspan="2" class="muted">연결 후 표시된다</td></tr>
+      </tbody></table>
+    </div>
+
+    <div class="card">
+      <div class="row"><b>네트워크</b>
+        <button id="bdNetGet" class="small">읽기</button>
+        <a id="bdNetOpen" class="small" hidden target="_blank" rel="noopener">보드 웹페이지 열기</a></div>
+      <table><tbody id="bdNetTbl">
         <tr><td colspan="2" class="muted">연결 후 표시된다</td></tr>
       </tbody></table>
     </div>
@@ -74,8 +83,61 @@ export function mount(ctx) {
   $('bdRtcGet').onclick = () => readRtc(ctx).catch(e => log(`시각 읽기 실패: ${e.message}`, 'err'));
   $('bdRtcSet').onclick = () => syncRtc(ctx).catch(e => log(`시각 동기화 실패: ${e.message}`, 'err'));
   $('bdRtcAuto').onchange = (e) => { if (!e.target.checked) stopAuto(); else startAuto(ctx); };
+  $('bdNetGet').onclick   = () => readNet(ctx).catch(e => log(`네트워크 읽기 실패: ${e.message}`, 'err'));
 
   startAuto(ctx);
+}
+
+//-- 네트워크 상태.
+//
+//   보드가 IP 를 받으면 "보드 웹페이지 열기" 가 나타난다. 이 페이지는 HTTPS
+//   (GitHub Pages)라 http://보드IP 로 fetch/WebSocket 을 걸 수 없다(mixed
+//   content). 다만 **최상위 이동은 허용**되므로 새 탭으로 여는 것은 된다.
+//   그 뒤로는 보드 자체 웹서버가 상대한다.
+//
+async function readNet(ctx) {
+  const { $, channel, isActive } = ctx;
+  const ch = channel();
+  if (!ch) return;
+
+  const r = await ch.request(BOOT_CMD.NET);
+  if (r.err) throw new Error(`NET err=0x${r.err.toString(16)}`);
+  const n = parseNet(r.data);
+  if (!isActive(id)) return;
+
+  const link = $('bdNetOpen');
+
+  if (!n.valid) {
+    $('bdNetTbl').innerHTML =
+      '<tr><td colspan="2" class="muted">이 쪽에는 이더넷이 없다 (부트로더)</td></tr>';
+    link.hidden = true;
+    return;
+  }
+
+  const yn = (v, ok, ng) => `<span class="${v ? 'ok' : 'err'}">${v ? ok : ng}</span>`;
+
+  //   DHCP 로 받기 전에는 펌웨어에 박아둔 기본값이 그대로 보인다. 그걸 보드
+  //   주소인 것처럼 보여주면 안 된다. 할당 전임을 붙여서 알린다.
+  const assigned = n.ipGet;
+  const note = assigned ? '' : ' <span class="muted">(기본값, 할당 전)</span>';
+
+  $('bdNetTbl').innerHTML = `
+    <tr><th>링크</th><td>${yn(n.link, '연결됨', '케이블 연결 안 됨')}</td></tr>
+    <tr><th>주소</th><td>${n.dhcp ? 'DHCP' : '고정 IP'} ·
+        ${yn(assigned, '할당됨', '아직 못 받음')}</td></tr>
+    <tr><th>IP</th><td>${n.ip}${note}</td></tr>
+    <tr><th>서브넷</th><td>${n.sn}</td></tr>
+    <tr><th>게이트웨이</th><td>${n.gw}</td></tr>
+    <tr><th>DNS</th><td>${n.dns}</td></tr>
+    <tr><th>MAC</th><td>${n.mac}</td></tr>`;
+
+  if (n.ipGet && n.ip !== '0.0.0.0') {
+    link.href   = `http://${n.ip}/`;
+    link.textContent = `보드 웹페이지 열기 (${n.ip})`;
+    link.hidden = false;
+  } else {
+    link.hidden = true;
+  }
 }
 
 //-- 보드 시각을 읽어 PC 와 비교한다.
@@ -164,6 +226,7 @@ export async function refresh(ctx) {
   // 앱 모드에서는 네트워크/하드웨어 정보가 여기에 더 붙는다.
   $('bdTbl').innerHTML = common + flash;
 
+  await readNet(ctx);
   await readRtc(ctx);
 
   // 연결이 끊겼다 다시 붙으면 mount() 는 다시 불리지 않는다(탭이 그대로라서).

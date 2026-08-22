@@ -24,7 +24,9 @@ extern "C" {
 #include "gpio.h"
 #include "flash.h"
 #include "wiz_spi.h"
+#ifdef _USE_HW_WIZNET
 #include "wiznet/wiznet.h"
+#endif
 #include "event.h"
 #include "osal/thread.h"
 

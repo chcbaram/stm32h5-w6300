@@ -6,6 +6,18 @@
 
 static __attribute__((section(".noinit")))  fault_log_t fault_log;
 
+//-- 이번 부팅이 폴트 직후인가.
+//
+//   fault_log 는 .noinit 이라 리셋에도 살아남는다. 그래서 폴트가 한참 전에
+//   한 번 났으면 REG_PC 가 그대로 남아, 폴트와 무관한 롤백/검증 실패 기록에도
+//   엉뚱한 PC 가 찍혔다. 전원을 막 넣은 직후라면 아예 SRAM 쓰레기값이다.
+//
+//   faultInit() 이 매직을 보고 한 번만 걷어 담는다. 매직은 그 자리에서 지우므로
+//   다음 부팅에는 거짓이 된다.
+//
+static bool     is_fault_boot = false;
+static uint32_t fault_boot_pc = 0;
+
 
 
 
@@ -15,6 +27,9 @@ bool faultInit(void)
   if (fault_log.magic_number == 0x5555AAAA)
   {
     fault_log.magic_number = 0;
+
+    is_fault_boot = true;
+    fault_boot_pc = fault_log.is_reg ? fault_log.REG_PC : 0;
 
     logPrintf("Fault Message\n");
     logPrintf("  Type : %d\n",     fault_log.type);
@@ -100,12 +115,19 @@ bool faultGetLog(fault_log_t *p_log)
     return false;
 
   *p_log = fault_log;
-  return (fault_log.magic_number == 0x5555AAAA || fault_log.is_reg == true);
+  return is_fault_boot;
 }
 
+bool faultIsFaultBoot(void)
+{
+  return is_fault_boot;
+}
+
+//   폴트 직후 부팅이 아니면 0 이다. 부트 이벤트 로그의 PC 열은 이 값을 쓰므로,
+//   폴트가 원인이 아닌 기록에는 '-' 가 찍힌다.
 uint32_t faultGetPc(void)
 {
-  return fault_log.is_reg ? fault_log.REG_PC : 0;
+  return is_fault_boot ? fault_boot_pc : 0;
 }
 
 #endif

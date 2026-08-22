@@ -243,6 +243,9 @@ bool wiznetGetInfo(wiznet_info_t *p_info)
   memcpy(p_info->mac, net_info.mac, sizeof(net_info.mac));
   memcpy(p_info->sn,  net_info.sn,  sizeof(net_info.sn));
 
+  // 구조체에 자리는 있는데 채우지 않고 있었다. 호출자는 스택 쓰레기값을 봤다.
+  p_info->dhcp = (net_info.dhcp == NETINFO_DHCP);
+
   return true;
 }
 
