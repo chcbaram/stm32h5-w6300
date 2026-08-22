@@ -38,6 +38,11 @@
   progress{width:100%;height:8px;margin-top:10px}
   #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
        white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
+  .term{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+        white-space:pre-wrap;height:320px;overflow:auto;margin:0;
+        background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px}
+  input[type=text]{font:inherit;padding:7px 10px;border-radius:6px;
+        border:1px solid var(--line);background:var(--bg);color:var(--fg)}
   .ok{color:var(--ok)} .err{color:var(--err)} .muted{color:var(--muted)}
   .small{font-size:13px}
   .warn{border-left:3px solid var(--accent);padding-left:12px;margin:0 0 18px;
@@ -78,9 +83,10 @@ import { HidChannel } from './web/proto.js';
 import { BOOT_CMD, parseInfo, DEV_MODE_BOOT } from './web/boot.js';
 import * as firmware from './web/panels/firmware.js';
 import * as board    from './web/panels/board.js';
+import * as cli      from './web/panels/cli.js';
 
 const VID = 0xCAFE, PID = 0xB003;
-const PANELS = [firmware, board];
+const PANELS = [firmware, board, cli];
 
 const $ = (id) => document.getElementById(id);
 let device = null, channel = null, current = null, devInfo = null;

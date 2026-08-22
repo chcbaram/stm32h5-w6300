@@ -15,6 +15,7 @@ export const BOOT_CMD = {
   FW_JUMP:   0x0009,
   LOG_COUNT: 0x000A,
   LOG_READ:  0x000B,
+  CLI:       0x0010,
 };
 
 export const ITEM_SIZE = 84;      // boot_ver_item_t

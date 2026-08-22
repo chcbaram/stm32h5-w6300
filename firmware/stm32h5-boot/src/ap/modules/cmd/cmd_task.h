@@ -20,6 +20,13 @@ extern cmd_driver_t cmd_hid_driver;
 bool cmdBootProcess(cmd_t *p_cmd);
 bool cmdBootIsBusy(void);
 
+// cmd 패킷 위의 가상 CLI 채널
+bool     cliCmdInit(void);
+bool     cliCmdIsConnected(void);
+bool     cliCmdPutLine(cmd_t *p_cmd, uint8_t *p_data, uint32_t length);
+uint32_t cliCmdGetOut(uint8_t **pp_data);
+void     cliCmdClearOut(void);
+
 #endif
 
 #endif

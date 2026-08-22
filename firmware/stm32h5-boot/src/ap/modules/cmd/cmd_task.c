@@ -33,6 +33,8 @@ bool cmdTaskInit(void)
     cmdOpen(&cmd_ch[i].cmd);
   }
 
+  cliCmdInit();
+
   logPrintf("[OK] cmdTaskInit()\n");
   for (uint32_t i = 0; i < CMD_CH_MAX; i++)
     logPrintf("     %s\n", cmd_ch[i].name);

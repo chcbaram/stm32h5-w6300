@@ -1,0 +1,3 @@
+pytest>=8
+pyserial>=3.5
+hidapi>=0.14

@@ -19,6 +19,7 @@
 #define BOOT_CMD_FW_JUMP          0x0009
 #define BOOT_CMD_LOG_COUNT        0x000A
 #define BOOT_CMD_LOG_READ         0x000B
+#define BOOT_CMD_CLI              0x0010
 
 
 //-- 호스트가 연결 직후 가장 먼저 부르는 커맨드의 응답.
@@ -412,6 +413,48 @@ bool cmdBootProcess(cmd_t *p_cmd)
         cmdSendResp(p_cmd, cmd, ERR_BOOT_WRONG_RANGE, NULL, 0);
       else
         cmdSendResp(p_cmd, cmd, CMD_OK, (uint8_t *)&log, sizeof(log));
+      break;
+    }
+
+    //-- CLI 한 줄을 실행하고 출력을 돌려준다.
+    //
+    //   cli.c 는 가상 UART 채널(HW_UART_CH_CMD)에서 읽으므로 아무것도 모른다.
+    //   전송이 HID 든 CDC 든 (향후) 네트워크든 동일하게 동작한다.
+    //
+    case BOOT_CMD_CLI:
+    {
+      uint8_t *p_out;
+      uint32_t out_len;
+      uint8_t  prev_port = cliGetPort();
+
+      cliCmdPutLine(p_cmd, p_data, length);
+
+      // cli.c 는 '현재 열린 포트' 로 출력한다. 잠시 가상 CLI 채널로 돌려놓아야
+      // 출력이 USART1 이 아니라 우리 버퍼로 모인다.
+      //
+      // cli_mgr 이 같은 moduleUpdate 안에서 cliMain() 을 또 부르면 재진입이 되므로
+      // 그동안 꺼둔다.
+      cliMgrEnable(false);
+      cliOpen(HW_UART_CH_CMD, 0);
+
+      {
+        uint32_t pre_time = millis();
+
+        while (millis() - pre_time < 300)
+        {
+          cliMain();
+          if (uartAvailable(HW_UART_CH_CMD) == 0)
+            break;
+        }
+        cliMain();      // 프롬프트까지 뱉게 한 번 더
+      }
+
+      cliOpen(prev_port, 0);
+      cliMgrEnable(true);
+
+      out_len = cliCmdGetOut(&p_out);
+      cmdSendResp(p_cmd, cmd, CMD_OK, p_out, (uint16_t)out_len);
+      cliCmdClearOut();
       break;
     }
 

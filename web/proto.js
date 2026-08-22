@@ -30,53 +30,86 @@ export function buildPacket(cmd, data = new Uint8Array(0), type = PKT_TYPE_CMD) 
   return p;
 }
 
-export class HidChannel {
+//-- 전송계층 공통 규약.
+//
+//   펌웨어의 cmd.c 가 전송계층과 무관하게 설계된 것과 같은 이유로, 웹도 전송을
+//   갈아끼울 수 있게 해둔다. 지금은 HID 하나지만 나중에 W6300 네트워크(WebSocket)가
+//   붙는다.
+//
+//   주의: GitHub Pages 는 https 라서 브라우저가 http/ws 로의 접속을 mixed content 로
+//         차단한다. 네트워크 전송을 쓰려면 페이지를 보드가 직접 서빙하거나
+//         http://localhost 로 열어야 한다.
+//
+export class Channel {
+  async send(bytes)        { throw new Error('not implemented'); }
+  takeRx()                 { throw new Error('not implemented'); }  // 받은 바이트를 비우며 돌려준다
+  detach()                 {}
+
+  async request(cmd, data, timeoutMs = 4000) {
+    this._rx = new Uint8Array(0);
+    await this.send(buildPacket(cmd, data || new Uint8Array(0)));
+
+    const t0 = performance.now();
+    for (;;) {
+      this._append(this.takeRx());
+      for (let i = 0; i + 9 <= this._rx.length; i++) {
+        if (this._rx[i] !== 0x02 || this._rx[i + 1] !== 0xFD) continue;
+        const dv = new DataView(this._rx.buffer, this._rx.byteOffset + i);
+        const err = dv.getUint16(5, true);
+        const len = dv.getUint16(7, true);
+        if (this._rx.length - i < 9 + len + 1) break;
+        return { err, data: this._rx.slice(i + 9, i + 9 + len) };
+      }
+      if (performance.now() - t0 > timeoutMs)
+        throw new Error(`cmd 0x${cmd.toString(16).padStart(4, '0')} 응답 없음`);
+      await new Promise(r => setTimeout(r, 2));
+    }
+  }
+
+  _append(chunk) {
+    if (!chunk || !chunk.length) return;
+    const n = new Uint8Array((this._rx?.length || 0) + chunk.length);
+    if (this._rx) n.set(this._rx);
+    n.set(chunk, this._rx?.length || 0);
+    this._rx = n;
+  }
+}
+
+export class HidChannel extends Channel {
   constructor(device) {
+    super();
     this.dev = device;
-    this.rx = new Uint8Array(0);
+    this.pending = new Uint8Array(0);
+    this._rx = new Uint8Array(0);
     this._onReport = (e) => {
       const d = new Uint8Array(e.data.buffer);
       const n = d[0];
-      if (n > 0 && n <= PAYLOAD) this._append(d.slice(1, 1 + n));
+      // 리포트[0] 이 유효 바이트 수다. HID 는 항상 64바이트를 꽉 채워 보내므로
+      // 이 값이 없으면 패딩과 실제 데이터를 구분할 수 없다(펌웨어 cmd_hid.c 와 동일 규약).
+      if (n > 0 && n <= PAYLOAD) {
+        const m = new Uint8Array(this.pending.length + n);
+        m.set(this.pending); m.set(d.slice(1, 1 + n), this.pending.length);
+        this.pending = m;
+      }
     };
     device.addEventListener('inputreport', this._onReport);
   }
 
   detach() { this.dev.removeEventListener('inputreport', this._onReport); }
 
-  _append(chunk) {
-    const n = new Uint8Array(this.rx.length + chunk.length);
-    n.set(this.rx); n.set(chunk, this.rx.length);
-    this.rx = n;
+  takeRx() {
+    const out = this.pending;
+    this.pending = new Uint8Array(0);
+    return out;
   }
 
-  async _sendRaw(bytes) {
+  async send(bytes) {
     for (let i = 0; i < bytes.length; i += PAYLOAD) {
       const c = bytes.slice(i, i + PAYLOAD);
       const rpt = new Uint8Array(RPT);
       rpt[0] = c.length;
       rpt.set(c, 1);
       await this.dev.sendReport(0, rpt);
-    }
-  }
-
-  async request(cmd, data, timeoutMs = 4000) {
-    this.rx = new Uint8Array(0);
-    await this._sendRaw(buildPacket(cmd, data || new Uint8Array(0)));
-
-    const t0 = performance.now();
-    for (;;) {
-      for (let i = 0; i + 9 <= this.rx.length; i++) {
-        if (this.rx[i] !== 0x02 || this.rx[i + 1] !== 0xFD) continue;
-        const dv = new DataView(this.rx.buffer, this.rx.byteOffset + i);
-        const err = dv.getUint16(5, true);
-        const len = dv.getUint16(7, true);
-        if (this.rx.length - i < 9 + len + 1) break;
-        return { err, data: this.rx.slice(i + 9, i + 9 + len) };
-      }
-      if (performance.now() - t0 > timeoutMs)
-        throw new Error(`cmd 0x${cmd.toString(16).padStart(4, '0')} 응답 없음`);
-      await new Promise(r => setTimeout(r, 2));
     }
   }
 }

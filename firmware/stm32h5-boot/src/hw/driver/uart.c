@@ -59,6 +59,7 @@ static uart_hw_t uart_hw_tbl[UART_MAX_CH] =
   {
     {"USART1 SWD   ", USART1, &huart1, false, NULL},
     {"USB CDC      ", NULL,   NULL   , false, NULL},
+    {"CMD CLI      ", NULL,   NULL   , false, NULL},
   };
 
 
