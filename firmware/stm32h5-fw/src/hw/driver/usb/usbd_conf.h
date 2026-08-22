@@ -56,7 +56,25 @@
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Common Config */
-#define USBD_MAX_NUM_INTERFACES               1
+//-- composite (CDC 2 + HID 1 = 인터페이스 3개, 클래스 2개)
+//
+//   USBD_MAX_NUM_INTERFACES 가 실제 인터페이스 수보다 작으면 빌더의
+//   USBD_CMPSIT_FindFreeIFNbr() 이 빈 슬롯을 못 찾아 인터페이스 번호가 겹친다.
+//   증상이 "열거는 되는데 HID 만 안 보인다" 로 나와 원인을 찾기 어렵다.
+//
+#define USE_USBD_COMPOSITE
+#define USBD_MAX_SUPPORTED_CLASS              2U
+#define USBD_MAX_CLASS_INTERFACES             3U
+#define USBD_MAX_CLASS_ENDPOINTS              3U
+#define USBD_CMPST_MAX_CONFDESC_SZ            200U
+
+//   CDC 의 Comm/Data 인터페이스를 IAD 로 묶는다. 장치 디스크립터를
+//   0xEF/0x02/0x01 (Miscellaneous, IAD) 로 선언해 놓고 IAD 를 빼면 윈도우가
+//   두 인터페이스를 별개 장치로 보고 VCP 를 못 만든다. 빌더는 이 매크로가
+//   1 일 때만 IAD 를 붙인다(기본값이 없어 정의하지 않으면 0 취급).
+#define USBD_COMPOSITE_USE_IAD                1
+
+#define USBD_MAX_NUM_INTERFACES               3
 #define USBD_MAX_NUM_CONFIGURATION            1
 #define USBD_MAX_STR_DESC_SIZ                 0x100
 #define USBD_SUPPORT_USER_STRING              0 
@@ -103,6 +121,7 @@
 
 /* Exported functions ------------------------------------------------------- */
 void *USBD_static_malloc(uint32_t size);
+void USBD_static_reset(void);
 void USBD_static_free(void *p);
 
 bool USBD_is_connected(void);

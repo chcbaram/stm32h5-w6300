@@ -4,7 +4,7 @@
 //     STX0(0x02) STX1(0xFD) type cmd_l cmd_h err_l err_h len_l len_h [data] checksum
 //     checksum = (~sum(header+data)) + 1
 //
-//   HID 는 스트림이 아니라 64바이트 고정 리포트라, 펌웨어(cmd_hid.c)와 같은 규약으로
+//   HID 는 스트림이 아니라 64바이트 고정 리포트라, 펌웨어(drv_hid.c)와 같은 규약으로
 //   조각낸다.  리포트[0] = 유효 바이트 수, 리포트[1:] = 페이로드
 //
 //   이 파일은 전송/프로토콜만 담당한다. 화면은 panels/*.js 가 맡는다.
@@ -85,7 +85,7 @@ export class HidChannel extends Channel {
       const d = new Uint8Array(e.data.buffer);
       const n = d[0];
       // 리포트[0] 이 유효 바이트 수다. HID 는 항상 64바이트를 꽉 채워 보내므로
-      // 이 값이 없으면 패딩과 실제 데이터를 구분할 수 없다(펌웨어 cmd_hid.c 와 동일 규약).
+      // 이 값이 없으면 패딩과 실제 데이터를 구분할 수 없다(펌웨어 drv_hid.c 와 동일 규약).
       if (n > 0 && n <= PAYLOAD) {
         const m = new Uint8Array(this.pending.length + n);
         m.set(this.pending); m.set(d.slice(1, 1 + n), this.pending.length);

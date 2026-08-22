@@ -18,6 +18,7 @@ from cmdproto import (CmdChannel, SerialTransport, HidTransport,
                       BOOT_CMD_VERSION, parse_version)
 
 CHUNK = 512      # cmd 최대 데이터 1024B. offset 4B 를 빼고도 여유가 있다.
+CMD_BAUD = 921600   # 115200 이 아니면 무엇이든 된다. USB CDC 라 실제 속도와 무관하다.
 
 
 def find_default_bin():
@@ -38,7 +39,10 @@ def open_channel(args):
             sys.exit("시리얼 포트를 찾지 못했다. --port 로 지정한다.")
         port = ports[-1]
         print(f"포트 자동 선택: {port}")
-    ser = serial.Serial(port, 115200, timeout=0.3)
+    # 115200 은 "터미널" 로 예약되어 있다. 그 보율로 열면 펌웨어가 CDC 를 CLI 에
+    # 넘겨버려 cmd 패킷을 아무도 읽지 않는다. 다른 보율로 열어 cmd 가 독점하게 한다.
+    # (firmware cdcGetType() / cmd_task.c cmdChIsEnabled())
+    ser = serial.Serial(port, CMD_BAUD, timeout=0.3)
     time.sleep(0.4)
     return CmdChannel(SerialTransport(ser))
 

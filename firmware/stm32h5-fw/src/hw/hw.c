@@ -45,8 +45,15 @@ bool hwInit(void)
   flashInit();
   
   usbInit();
+#if HW_USE_CMP == 1
+  usbBegin(USB_CMP_MODE);
+#else
   usbBegin(USB_CDC_MODE);
+#endif
   cdcInit();
+#if HW_USE_HID == 1
+  hidInit();
+#endif
     
   eventInit();  
   wiznetInit();

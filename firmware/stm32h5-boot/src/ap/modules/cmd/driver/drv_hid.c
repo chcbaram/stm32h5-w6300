@@ -27,7 +27,7 @@ static qbuffer_t rx_q;
 static bool     is_init = false;
 
 
-static void cmdHidInitOnce(void)
+static void drvHidInitOnce(void)
 {
   if (is_init)
     return;
@@ -38,11 +38,11 @@ static void cmdHidInitOnce(void)
 //-- TinyUSB 가 호스트로부터 리포트를 받으면 부른다.
 //   USB 콜백 안이므로 링버퍼에 넣기만 하고 처리는 메인 루프에서 한다.
 //
-void cmdHidRxReport(uint8_t const *buffer, uint16_t bufsize)
+void drvHidRxReport(uint8_t const *buffer, uint16_t bufsize)
 {
   uint8_t n;
 
-  cmdHidInitOnce();
+  drvHidInitOnce();
 
   if (bufsize < 1)
     return;
@@ -57,45 +57,45 @@ void cmdHidRxReport(uint8_t const *buffer, uint16_t bufsize)
 }
 
 
-static bool cmdHidOpen(void *args)
+static bool drvHidOpen(void *args)
 {
   (void)args;
-  cmdHidInitOnce();
+  drvHidInitOnce();
   return true;
 }
 
-static bool cmdHidClose(void *args)
+static bool drvHidClose(void *args)
 {
   (void)args;
   return true;
 }
 
-static uint32_t cmdHidAvailable(void *args)
+static uint32_t drvHidAvailable(void *args)
 {
   (void)args;
-  cmdHidInitOnce();
+  drvHidInitOnce();
   return qbufferAvailable(&rx_q);
 }
 
-static bool cmdHidFlush(void *args)
+static bool drvHidFlush(void *args)
 {
   (void)args;
-  cmdHidInitOnce();
+  drvHidInitOnce();
   qbufferFlush(&rx_q);
   return true;
 }
 
-static uint8_t cmdHidRead(void *args)
+static uint8_t drvHidRead(void *args)
 {
   uint8_t data = 0;
 
   (void)args;
-  cmdHidInitOnce();
+  drvHidInitOnce();
   qbufferRead(&rx_q, &data, 1);
   return data;
 }
 
-static uint32_t cmdHidWrite(void *args, uint8_t *p_data, uint32_t length)
+static uint32_t drvHidWrite(void *args, uint8_t *p_data, uint32_t length)
 {
   uint32_t sent = 0;
 
@@ -135,14 +135,14 @@ static uint32_t cmdHidWrite(void *args, uint8_t *p_data, uint32_t length)
 }
 
 
-cmd_driver_t cmd_hid_driver =
+cmd_driver_t drv_hid_driver =
 {
-  .open      = cmdHidOpen,
-  .close     = cmdHidClose,
-  .available = cmdHidAvailable,
-  .flush     = cmdHidFlush,
-  .read      = cmdHidRead,
-  .write     = cmdHidWrite,
+  .open      = drvHidOpen,
+  .close     = drvHidClose,
+  .available = drvHidAvailable,
+  .flush     = drvHidFlush,
+  .read      = drvHidRead,
+  .write     = drvHidWrite,
 };
 
 #endif

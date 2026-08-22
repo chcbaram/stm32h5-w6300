@@ -437,9 +437,9 @@ void cliCmd(cli_args_t *args)
 
   if (args->argc == 1 && args->isStr(0, "info") == true)
   {
-    cliPrintf("is_init   \t: %d\n", is_init ? "True":"False");
+    cliPrintf("is_init   \t: %s\n", is_init ? "True":"False");
     cliPrintf("is_found  \t: %s\n", is_chip_found ? "True":"False");
-    cliPrintf("is_dhcp   \t: %d\n", is_init_dhcp ? "True":"False");
+    cliPrintf("is_dhcp   \t: %s\n", is_init_dhcp ? "True":"False");
     cliPrintf("is_ip_get \t: %s\n", wiznetIsGetIP() ? "True":"False");
 
     wiznetPrintInfo(&net_info);

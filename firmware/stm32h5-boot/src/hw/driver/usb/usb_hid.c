@@ -4,10 +4,10 @@
 #if CFG_TUD_HID
 
 
-//-- WebHID 채널. 실제 명령 처리는 ap/modules/cmd/driver/cmd_hid.c 가 한다.
+//-- WebHID 채널. 실제 명령 처리는 ap/modules/cmd/driver/drv_hid.c 가 한다.
 //
 #ifdef _USE_HW_CMD
-extern void cmdHidRxReport(uint8_t const *buffer, uint16_t bufsize);
+extern void drvHidRxReport(uint8_t const *buffer, uint16_t bufsize);
 #endif
 
 
@@ -27,7 +27,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id,
 
 #ifdef _USE_HW_CMD
   // OUT 엔드포인트로 온 리포트. USB 콜백이므로 링버퍼에 넣기만 한다.
-  cmdHidRxReport(buffer, bufsize);
+  drvHidRxReport(buffer, bufsize);
 #else
   (void)buffer; (void)bufsize;
 #endif

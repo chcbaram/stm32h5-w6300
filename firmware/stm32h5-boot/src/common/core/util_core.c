@@ -84,10 +84,61 @@ uint16_t utilCalcCRC(uint16_t crc_cur, uint8_t *p_data, uint32_t length)
 {
   uint16_t crc_ret = crc_cur;
 
-  for (int i=0; i<length; i++)
+  for (uint32_t i=0; i<length; i++)
   {
     utilUpdateCrc(&crc_ret, p_data[i]);
   }
 
   return crc_ret;
+}
+
+uint32_t utilEpochFromCivil(uint16_t year, uint8_t month, uint8_t day,
+                            uint8_t hour, uint8_t min, uint8_t sec)
+{
+  uint32_t y = year;
+  uint32_t m = month;
+  uint32_t d = day;
+  uint32_t era, yoe, doy, doe, days;
+
+  if (m < 1 || m > 12 || d < 1 || d > 31)
+    return 0;
+
+  y   -= (m <= 2);
+  era  = y / 400;
+  yoe  = y - era * 400;
+  doy  = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  doe  = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  days = era * 146097 + doe - 719468;
+
+  return days * 86400u + (uint32_t)hour * 3600u + (uint32_t)min * 60u + (uint32_t)sec;
+}
+
+bool utilCivilFromEpoch(uint32_t epoch, uint16_t *p_year, uint8_t *p_month,
+                        uint8_t *p_day, uint8_t *p_hour, uint8_t *p_min, uint8_t *p_sec)
+{
+  uint32_t days = epoch / 86400u;
+  uint32_t secs = epoch % 86400u;
+  uint32_t y, m, d, era, doe, yoe, doy, mp;
+
+  if (epoch == 0)
+    return false;
+
+  days += 719468u;
+  era   = days / 146097u;
+  doe   = days - era * 146097u;
+  yoe   = (doe - doe/1460 + doe/36524 - doe/146096) / 365;
+  y     = yoe + era * 400;
+  doy   = doe - (365*yoe + yoe/4 - yoe/100);
+  mp    = (5*doy + 2) / 153;
+  d     = doy - (153*mp + 2)/5 + 1;
+  m     = mp + (mp < 10 ? 3 : -9);
+  y    += (m <= 2);
+
+  *p_year  = (uint16_t)y;
+  *p_month = (uint8_t)m;
+  *p_day   = (uint8_t)d;
+  *p_hour  = (uint8_t)(secs / 3600u);
+  *p_min   = (uint8_t)((secs / 60u) % 60u);
+  *p_sec   = (uint8_t)(secs % 60u);
+  return true;
 }

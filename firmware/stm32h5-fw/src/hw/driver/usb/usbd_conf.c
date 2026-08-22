@@ -48,6 +48,9 @@
 #include "usbd_def.h"
 #include "usbd_core.h"
 #include "usbd_cdc.h"
+#if HW_USE_HID == 1
+#include "usbd_hid.h"
+#endif
 
 
 PCD_HandleTypeDef hpcd_USB_DRD_FS;
@@ -396,15 +399,38 @@ USBD_StatusTypeDef USBD_LL_Init(USBD_HandleTypeDef *pdev)
 
   /* USER CODE END RegisterCallBackSecondPart */
 #endif /* USE_HAL_PCD_REGISTER_CALLBACKS */
+  //-- PMA(2KB) 배치.
+  //
+  //   BTABLE 은 엔드포인트당 8바이트라 8개면 0x000~0x03F 를 차지한다. 이전
+  //   CDC 전용 배치는 EP0 OUT 버퍼를 0x014 에 두고 있었는데, 이는 EP2 이상의
+  //   BTABLE 엔트리와 겹친다. CDC 만 쓸 때는 EP3~7 이 놀고 있어 드러나지
+  //   않았지만 HID(EP3) 를 추가하는 순간 EP3 의 버퍼 주소가 EP0 데이터에
+  //   덮여 통신이 깨진다. 그래서 BTABLE 영역 전체를 비워두고 다시 잡는다.
+  //
+  //   0x000  BTABLE          64B   (8 EP x 8B)
+  //   0x040  EP0 OUT         64B
+  //   0x080  EP0 IN          64B
+  //   0x0C0  CDC notif (IN)  16B
+  //   0x0D0  CDC IN          64B
+  //   0x110  CDC OUT         64B
+  //   0x150  HID IN          64B
+  //   0x190  HID OUT         64B
+  //   ----------------------------
+  //   0x1D0 = 464B / 2048B
+  //
   /* USER CODE BEGIN EndPoint_Configuration */
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x00 , PCD_SNG_BUF, 0x14);
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x80 , PCD_SNG_BUF, 0x54);
+  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x00, PCD_SNG_BUF, 0x040);
+  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x80, PCD_SNG_BUF, 0x080);
   /* USER CODE END EndPoint_Configuration */
   /* USER CODE BEGIN EndPoint_Configuration_CDC */
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, CDC_IN_EP, PCD_SNG_BUF, 0x94);
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, CDC_OUT_EP, PCD_SNG_BUF, 0xD4);
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, CDC_CMD_EP, PCD_SNG_BUF, 0x114);
+  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, CDC_CMD_EP, PCD_SNG_BUF, 0x0C0);
+  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, CDC_IN_EP,  PCD_SNG_BUF, 0x0D0);
+  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, CDC_OUT_EP, PCD_SNG_BUF, 0x110);
   /* USER CODE END EndPoint_Configuration_CDC */
+#if HW_USE_HID == 1
+  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, HID_EPIN_ADDR,  PCD_SNG_BUF, 0x150);
+  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, HID_EPOUT_ADDR, PCD_SNG_BUF, 0x190);
+#endif
 
   return USBD_OK;
 }
@@ -664,11 +690,36 @@ USBD_StatusTypeDef USBD_LL_SetTestMode(USBD_HandleTypeDef *pdev, uint8_t testmod
   * @param  size: Size of allocated memory
   * @retval None
   */
+//-- composite 는 클래스마다 한 번씩 USBD_malloc() 을 부른다.
+//   기존처럼 고정 버퍼 하나를 돌려주면 CDC 와 HID 가 같은 메모리를 공유해
+//   서로의 상태를 덮어쓴다. 단순 bump 할당기로 바꾼다. free 는 하지 않으므로
+//   USBD_DeInit -> USBD_Init 을 반복하면 고갈된다. 그래서 USBD_static_reset()
+//   으로 usbBegin() 진입 시 되감는다.
+//
+#define USBD_STATIC_MEM_SIZE    ((sizeof(USBD_CDC_HandleTypeDef) + \
+                                  sizeof(USBD_HID_HandleTypeDef) + 64U) / 4U)
+
+static uint32_t usbd_mem[USBD_STATIC_MEM_SIZE];
+static uint32_t usbd_mem_used = 0;
+
+void USBD_static_reset(void)
+{
+  usbd_mem_used = 0;
+}
+
 void *USBD_static_malloc(uint32_t size)
 {
-  UNUSED(size);
-  static uint32_t mem[(sizeof(USBD_CDC_HandleTypeDef)/4)+1];/* On 32-bit boundary */
-  return mem;
+  uint32_t words = (size + 3U) / 4U;
+  uint32_t offset = usbd_mem_used;
+
+  if (usbd_mem_used + words > USBD_STATIC_MEM_SIZE)
+  {
+    logPrintf("[E_] USBD_static_malloc() out of memory %d\n", (int)size);
+    return NULL;
+  }
+
+  usbd_mem_used += words;
+  return &usbd_mem[offset];
 }
 
 /**

@@ -415,8 +415,10 @@ uint16_t bootJumpFirm(void)
     return err_code;
 
   {
+    // 포인터 폭이 32비트가 아닌 호스트 유닛 테스트에서도 경고 없이 좁혀지도록
+    // uintptr_t 를 거친다. 타깃에서는 둘 다 32비트라 결과가 같다.
     void (**jump_func)(void) = (void (**)(void))(FLASH_ADDR_FIRM + FLASH_SIZE_TAG + 4);
-    uint32_t reset_handler = (uint32_t)(*jump_func);
+    uint32_t reset_handler = (uint32_t)(uintptr_t)(*jump_func);
 
     if (reset_handler < FLASH_ADDR_FIRM ||
         reset_handler >= (FLASH_ADDR_FIRM + FLASH_SIZE_FIRM))
@@ -529,8 +531,8 @@ void cliBoot(cli_args_t *args)
       {"?", "UPDATE", "ROLLBACK", "FAULT_RECOVER", "VERIFY_FAIL", "ECC_CLEAN"};
     uint16_t n = bootLogGetCount();
 
-    cliPrintf("boot log : %d records\n", n);
-    cliPrintf("IDX  SEQ  EVENT          SLOT  FROM    TO      DETAIL\n");
+    cliPrintf("boot log : %d records (max %d)\n", n, BOOT_LOG_REC_MAX * BOOT_LOG_SECTOR_MAX);
+    cliPrintf("IDX  SEQ  TIME                 EVENT          SLOT  FROM    TO      DETAIL\n");
     for (uint16_t i = 0; i < n; i++)
     {
       boot_log_t log;
@@ -538,8 +540,26 @@ void cliBoot(cli_args_t *args)
       if (bootLogRead(i, &log) != true)
         continue;
 
-      cliPrintf("%3d %4d  %-13s ", i, (int)log.seq,
-                (log.event < 6) ? evt_str[log.event] : "?");
+      cliPrintf("%3d %4d  ", i, (int)log.seq);
+
+      // RTC 를 모르는 구간이 있다(코인셀이 없어 전원을 뽑으면 초기화된다).
+      // 그때는 0 이 들어 있으므로 '-' 로 보여준다.
+      {
+        rtc_info_t t;
+
+        if (rtcEpochToInfo(log.timestamp, &t) != true)
+        {
+          cliPrintf("%-19s ", "-");
+        }
+        else
+        {
+          cliPrintf("%04d-%02d-%02d %02d:%02d:%02d ",
+                    2000 + t.date.year, t.date.month, t.date.day,
+                    t.time.hours, t.time.minutes, t.time.seconds);
+        }
+      }
+
+      cliPrintf("%-13s ", (log.event < 6) ? evt_str[log.event] : "?");
       if (log.slot == 0xFF)
         cliPrintf(" -   ");
       else

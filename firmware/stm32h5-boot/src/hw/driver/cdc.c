@@ -89,9 +89,18 @@ uint32_t cdcGetBaud(void)
   return coding.bit_rate;
 }
 
+//-- 호스트가 연 보율로 CDC 스트림의 주인을 가른다.
+//
+//   115200 = 터미널(CLI), 그 외 = 호스트 툴(cmd 패킷).
+//   둘이 같은 스트림에서 각자 읽으면 서로 바이트를 훔쳐 양쪽 다 깨진다.
+//   판정은 cli_mgr.c 와 cmd_task.c 가 같이 쓴다.
+//
 uint8_t cdcGetType(void)
 {
-  return 0;
+  if (cdcGetBaud() == 115200)
+    return USB_CON_CLI;
+
+  return USB_CON_CDC;
 }
 
 //-- 1200bps touch : 호스트가 1200bps 로 열었다 닫으면 부트로더로 진입한다.

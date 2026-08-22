@@ -7,7 +7,7 @@
 #include "assert_def.h"
 
 
-#define _DEF_FIRMWATRE_VERSION    "V251024R1"
+#define _DEF_FIRMWATRE_VERSION    "V260822R1"
 #define _DEF_BOARD_NAME           "STM32H5-W6300-FW"
 
 
@@ -21,10 +21,11 @@
 #define      HW_LED_MAX_CH          1
 
 #define _USE_HW_UART
-#define      HW_UART_MAX_CH         3
+#define      HW_UART_MAX_CH         4
 #define      HW_UART_CH_SWD         _DEF_UART1
 #define      HW_UART_CH_USB         _DEF_UART2
 #define      HW_UART_CH_NET         _DEF_UART3
+#define      HW_UART_CH_CMD         _DEF_UART4    // cmd 패킷 위의 가상 CLI 채널
 #define      HW_UART_CH_CLI         HW_UART_CH_SWD
 
 
@@ -82,6 +83,17 @@
 #define _USE_HW_CDC
 #define      HW_USE_CDC             1
 #define      HW_USE_MSC             0
+#define      HW_USE_HID             1
+//   CDC 와 HID 를 한 장치로 묶는다. 웹페이지가 앱 상태에서도 붙을 수 있어야 한다.
+#define      HW_USE_CMP             1
+
+//   부트로더와 동일한 VID/PID 로 열거한다. 호스트는 필터 한 벌로 두 상태를 모두
+//   잡고, 어느 쪽인지는 BOOT_CMD_INFO 의 HW_DEV_MODE 로 구분한다.
+#define      HW_USB_VID             0xCAFE
+#define      HW_USB_PID             0xB003
+
+#define _USE_HW_CMD
+#define      HW_CMD_MAX_DATA_LENGTH 1024
 
 #define _USE_HW_EVENT
 #define      HW_EVENT_Q_MAX         8

@@ -35,6 +35,12 @@
         font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-weight:600}
+  /* 행이 많은 표(부트 이벤트 로그 등)는 높이를 묶고 안에서 스크롤한다.
+     머리글은 sticky 로 붙여 스크롤해도 열 이름이 보이게 한다. */
+  .tbl-scroll{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+  .tbl-scroll table{font-size:12.5px}
+  .tbl-scroll thead th{position:sticky;top:0;background:var(--card);z-index:1;
+        box-shadow:inset 0 -1px 0 var(--line)}
   progress{width:100%;height:8px;margin-top:10px}
   #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
        white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
@@ -97,7 +103,15 @@ function log(msg, cls) {
   el.scrollTop = el.scrollHeight;
 }
 
-const ctx = { $, log, channel: () => channel };
+//   패널의 refresh() 는 비동기다. 응답을 기다리는 동안 사용자가 탭을 바꾸면
+//   $('panel').innerHTML 이 갈려서, 돌아왔을 때 쓰려던 요소가 사라지고 없다
+//   ("Cannot set properties of null"). await 뒤에는 isActive() 로 확인한다.
+const ctx = {
+  $, log,
+  channel:  () => channel,
+  info:     () => devInfo,
+  isActive: (id) => current !== null && current.id === id,
+};
 
 function selectPanel(p) {
   current = p;
@@ -138,8 +152,8 @@ function showMode() {
   el.className = 'badge ' + (isBoot ? 'boot' : 'app');
 
   if (!isBoot) {
-    log('앱이 실행 중이다. 펌웨어를 갱신하려면 리셋 버튼을 빠르게 두 번 눌러 ' +
-        '부트로더로 진입한 뒤 다시 연결한다.', 'muted');
+    log('앱이 실행 중이다. 이 상태에서도 펌웨어를 슬롯에 받아둘 수 있고, ' +
+        '적용은 재부팅 후 부트로더가 한다.', 'muted');
   }
 }
 

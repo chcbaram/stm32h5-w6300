@@ -21,6 +21,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_cdc_if.h"
+#include "usb.h"
 #include "qbuffer.h"
 // #include "esp32.h"
 // #include "reset.h"
@@ -222,13 +223,26 @@ uint8_t CDC_SoF_ISR(struct _USBD_HandleTypeDef *pdev)
 
   if (tx_len > 0)
   {
+    //   composite 에서는 pClassData 가 "마지막으로 Init 된 클래스" 를 가리킨다.
+    //   CDC 핸들을 확실히 집으려면 인덱스로 꺼내야 한다. SOF 콜백은
+    //   USBD_LL_SOF() 가 classId 를 세팅한 뒤에 부르므로 여기서는 신뢰할 수 있다.
+    //
+#ifdef USE_USBD_COMPOSITE
+    USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)pdev->pClassDataCmsit[pdev->classId];
+#else
     USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)USBD_Device.pClassData;
-    if (hcdc->TxState == 0)
+#endif
+    if (hcdc != NULL && hcdc->TxState == 0)
     {
       qbufferRead(&q_tx, UserTxBufferFS, tx_len);
 
+#ifdef USE_USBD_COMPOSITE
+      USBD_CDC_SetTxBuffer(&USBD_Device, UserTxBufferFS, tx_len, (uint8_t)pdev->classId);
+      USBD_CDC_TransmitPacket(&USBD_Device, (uint8_t)pdev->classId);
+#else
       USBD_CDC_SetTxBuffer(&USBD_Device, UserTxBufferFS, tx_len);
       USBD_CDC_TransmitPacket(&USBD_Device);
+#endif
     }
   }
 
@@ -246,7 +260,11 @@ uint8_t CDC_SoF_ISR(struct _USBD_HandleTypeDef *pdev)
 static int8_t CDC_Init_FS(void)
 {
   /* Set Application Buffers */
+#ifdef USE_USBD_COMPOSITE
+  USBD_CDC_SetTxBuffer(&USBD_Device, UserTxBufferFS, 0, (uint8_t)USBD_Device.classId);
+#else
   USBD_CDC_SetTxBuffer(&USBD_Device, UserTxBufferFS, 0);
+#endif
   USBD_CDC_SetRxBuffer(&USBD_Device, UserRxBufferFS);
 
   is_opened = false;
@@ -448,12 +466,22 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 {
   uint8_t result = USBD_OK;
 
+#ifdef USE_USBD_COMPOSITE
+  uint8_t class_id = usbGetCdcClassId();
+  USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)USBD_Device.pClassDataCmsit[class_id];
+#else
   USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)USBD_Device.pClassData;
-  if (hcdc->TxState != 0){
+#endif
+  if (hcdc == NULL || hcdc->TxState != 0){
     return USBD_BUSY;
   }
+#ifdef USE_USBD_COMPOSITE
+  USBD_CDC_SetTxBuffer(&USBD_Device, Buf, Len, class_id);
+  result = USBD_CDC_TransmitPacket(&USBD_Device, class_id);
+#else
   USBD_CDC_SetTxBuffer(&USBD_Device, Buf, Len);
   result = USBD_CDC_TransmitPacket(&USBD_Device);
+#endif
 
   return result;
 }

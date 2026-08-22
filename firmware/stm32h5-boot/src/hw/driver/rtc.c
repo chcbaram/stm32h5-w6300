@@ -1,4 +1,5 @@
 #include "rtc.h"
+#include "util_core.h"
 
 
 
@@ -194,6 +195,63 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* rtcHandle)
     __HAL_RCC_RTC_ENABLE();
     __HAL_RCC_RTCAPB_CLK_ENABLE();
   }
+}
+
+//-- epoch <-> 달력.
+//
+//   계산 자체는 util_core.c 에 있다. 여기서는 RTC 읽기/쓰기와 "시각을 아는가"
+//   판정만 한다. 계산을 분리해 두면 호스트 유닛 테스트가 같은 구현을 시험한다.
+//
+uint32_t rtcGetEpoch(void)
+{
+  rtc_info_t info;
+  uint16_t   year;
+
+  if (rtcGetInfo(&info) != true)
+    return 0;
+
+  year = 2000 + info.date.year;
+
+  // 맞춘 적이 없으면 리셋 기본값(2000년대 초)에 머문다. 믿지 않는다.
+  if (year < RTC_EPOCH_YEAR_MIN)
+    return 0;
+
+  return utilEpochFromCivil(year, info.date.month, info.date.day,
+                            info.time.hours, info.time.minutes, info.time.seconds);
+}
+
+bool rtcEpochToInfo(uint32_t epoch, rtc_info_t *p_info)
+{
+  uint16_t year;
+  uint8_t  month, day, hour, min, sec;
+
+  if (utilCivilFromEpoch(epoch, &year, &month, &day, &hour, &min, &sec) != true)
+    return false;
+
+  if (year < 2000 || year > 2255)
+    return false;
+
+  p_info->date.year    = (uint8_t)(year - 2000);
+  p_info->date.month   = month;
+  p_info->date.day     = day;
+  p_info->date.week    = 0;
+  p_info->time.hours   = hour;
+  p_info->time.minutes = min;
+  p_info->time.seconds = sec;
+  return true;
+}
+
+bool rtcSetEpoch(uint32_t epoch)
+{
+  rtc_info_t info;
+
+  if (rtcEpochToInfo(epoch, &info) != true)
+    return false;
+
+  if (rtcSetDate(&info.date) != true)
+    return false;
+
+  return rtcSetTime(&info.time);
 }
 
 bool rtcSetReg(uint32_t index, uint32_t data)

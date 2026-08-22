@@ -8,6 +8,9 @@
 void apInit(void)
 {
   bootInit();
+#ifdef _USE_HW_CMD
+  cmdTaskInit();
+#endif
   moduleInit();
 }
 
@@ -61,6 +64,9 @@ void update(void const *arg)
   wiznetUpdate();  
   updateLED();    
   updateBootConfirm();
+#ifdef _USE_HW_CMD
+  cmdTaskUpdate();
+#endif
 }
 
 void cliLoopIdle(void)

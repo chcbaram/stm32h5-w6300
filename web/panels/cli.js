@@ -1,7 +1,7 @@
 //-- CLI 터미널 패널
 //
 //   보드의 CLI 를 그대로 웹에서 친다. 펌웨어 쪽은 cmd 패킷 위에 얹은 가상 UART
-//   채널(cli_cmd.c)이라 cli.c 는 아무것도 모른 채 동작한다.
+//   채널(drv_cli.c)이라 cli.c 는 아무것도 모른 채 동작한다.
 //
 //   전송이 HID 든 (향후) W6300 네트워크든 동일하다. proto.js 의 Channel 만 갈아끼우면 된다.
 //
@@ -38,6 +38,7 @@ export function mount(ctx) {
 
   const put = (text, cls) => {
     const t = $('cliTerm');
+    if (!t) return;        // 응답을 기다리는 사이 탭이 바뀌었다
     const span = cls ? `<span class="${cls}">${esc(text)}</span>` : esc(text);
     t.innerHTML += span;
     t.scrollTop = t.scrollHeight;
@@ -53,10 +54,27 @@ export function mount(ctx) {
     history = [line, ...history.filter(h => h !== line)].slice(0, HISTORY_MAX);
     histIdx = -1;
 
+    //-- 출력은 조각으로 온다.
+    //
+    //   `log` 덤프처럼 수 KB 가 나오는 명령이 있는데 cmd 패킷 하나에는 다 담기지
+    //   않는다. 응답의 [0] 이 more 플래그이고, 1 이면 CLI_MORE 로 나머지를 가져온다.
+    //
+    const decode = (d) => ({ more: d[0] === 1, text: new TextDecoder().decode(d.slice(1)) });
+
     try {
-      const r = await ch.request(BOOT_CMD.CLI, new TextEncoder().encode(line), 6000);
+      let r = await ch.request(BOOT_CMD.CLI, new TextEncoder().encode(line), 6000);
       if (r.err) { put(`\n[err 0x${r.err.toString(16).padStart(4, '0')}]\n`, 'err'); return; }
-      put('\n' + new TextDecoder().decode(r.data));
+
+      let out = decode(r.data);
+      put('\n' + out.text);
+
+      // 무한 루프 방지용 상한. 조각 하나가 512B 이므로 넉넉하다.
+      for (let i = 0; out.more && i < 64; i++) {
+        r = await ch.request(BOOT_CMD.CLI_MORE, new Uint8Array(0), 6000);
+        if (r.err) { put(`\n[err 0x${r.err.toString(16).padStart(4, '0')}]\n`, 'err'); break; }
+        out = decode(r.data);
+        put(out.text);
+      }
     } catch (e) {
       put(`\n[${e.message}]\n`, 'err');
     }

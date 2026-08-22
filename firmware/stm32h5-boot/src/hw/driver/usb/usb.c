@@ -128,9 +128,10 @@ UsbMode_t usbGetMode(void)
   return is_init ? USB_MSC_MODE : USB_NON_MODE;
 }
 
+//   호스트가 CDC 를 연 보율로 갈린다. cdc.c 의 cdcGetType() 을 본다.
 UsbType_t usbGetType(void)
 {
-  return USB_CON_CDC;
+  return (UsbType_t)cdcGetType();
 }
 
 //-- STM32 96bit UID 로 시리얼 문자열을 만든다.
@@ -183,11 +184,20 @@ void cliUsb(cli_args_t *args)
       cliPrintf("suspended : %d\n", tud_suspended());
 #if CFG_TUD_CDC
       cliPrintf("cdc conn  : %d\n", tud_cdc_n_connected(0));
+      // 호스트가 연 보율이 CDC 스트림의 주인을 정한다. 115200 이면 CLI, 그 외는 cmd.
+      cliPrintf("cdc baud  : %-8d\n", (int)cdcGetBaud());
+      cliPrintf("cdc owner : %-4s\n", usbGetType() == USB_CON_CLI ? "CLI" : "CMD");
+      cliMoveUp(7);
+#else
+      cliMoveUp(4);
 #endif
-      cliMoveUp(5);
       delay(100);
     }
-    cliMoveDown(5);
+#if CFG_TUD_CDC
+    cliMoveDown(7);
+#else
+    cliMoveDown(4);
+#endif
     ret = true;
   }
 

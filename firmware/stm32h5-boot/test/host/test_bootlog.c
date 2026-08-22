@@ -42,6 +42,32 @@ void testBootLog(void)
   // 가장 앞 레코드는 이전 세대의 첫 기록
   CHECK(bootLogRead(0, &log) && log.from_crc == 0, "앞 레코드는 이전 세대");
 
+  //-- 기록 시각
+  //
+  //   보드에 코인셀이 없어 RTC 를 모르는 구간이 있다. 그때는 0 을 남겨야 한다.
+  //   0 을 "시각 없음" 으로 표시하는 것이 CLI/웹의 약속이다.
+  //
+  mockFlashReset();
+  bootLogClear();
+  mockResetClear();                       // RTC 도 "맞춘 적 없음" 으로 되돌린다
+
+  CHECK(bootLogWrite(BOOT_EVT_UPDATE, 0, 1, 2, 0), "RTC 미설정 상태로 기록");
+  CHECK(bootLogRead(0, &log) && log.timestamp == 0,
+        "RTC 를 모르면 시각 0 (%u)", log.timestamp);
+
+  // 리셋 기본값(2000년대 초)도 믿지 않는다. 맞춘 적 없는 것과 구분되지 않는다.
+  mockRtcSet(2001, 1, 1, 0, 0, 0);
+  CHECK(bootLogWrite(BOOT_EVT_UPDATE, 0, 1, 2, 0), "옛 연도로 기록");
+  CHECK(bootLogRead(1, &log) && log.timestamp == 0,
+        "2024년 이전은 시각 0 (%u)", log.timestamp);
+
+  // 제대로 맞춰진 시각은 epoch 로 들어간다.
+  //   2026-08-22 18:07:57 UTC = 1787422077
+  mockRtcSet(2026, 8, 22, 18, 7, 57);
+  CHECK(bootLogWrite(BOOT_EVT_UPDATE, 0, 1, 2, 0), "정상 시각으로 기록");
+  CHECK(bootLogRead(2, &log) && log.timestamp == 1787422077u,
+        "epoch 변환 (%u, 기대 1787422077)", log.timestamp);
+
   CHECK(mockFlashViolations() == 0, "플래시 제약 위반 %u : %s",
         mockFlashViolations(), mockFlashLastViolation());
 }

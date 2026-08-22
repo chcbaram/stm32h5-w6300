@@ -3,6 +3,7 @@
 #include "led.h"
 #include "reset.h"
 #include "mock_flash.h"
+#include "util_core.h"
 #include <stdarg.h>
 
 
@@ -38,8 +39,40 @@ void     delay(uint32_t ms) { s_millis += ms; }
 uint32_t millis(void)       { return s_millis; }
 bool     bspDeInit(void)    { return true; }
 
+//-- RTC. 기본값은 "맞춘 적 없음"(연도 0) 이라 boot_log 는 시각 0 을 남긴다.
+static rtc_info_t s_rtc = {0};
+
+void mockRtcSet(int year, int month, int day, int h, int m, int s)
+{
+  s_rtc.date.year    = (uint8_t)(year - 2000);
+  s_rtc.date.month   = (uint8_t)month;
+  s_rtc.date.day     = (uint8_t)day;
+  s_rtc.time.hours   = (uint8_t)h;
+  s_rtc.time.minutes = (uint8_t)m;
+  s_rtc.time.seconds = (uint8_t)s;
+}
+
+bool rtcGetInfo(rtc_info_t *p_info)
+{
+  *p_info = s_rtc;
+  return true;
+}
+
+//   실물 rtc.c 의 rtcGetEpoch() 과 같은 판정을 한다. 계산은 util_core.c 의
+//   진짜 구현을 그대로 부르므로, 달력 변환은 여기서도 시험된다.
+uint32_t rtcGetEpoch(void)
+{
+  uint16_t year = 2000 + s_rtc.date.year;
+
+  if (year < RTC_EPOCH_YEAR_MIN)
+    return 0;
+
+  return utilEpochFromCivil(year, s_rtc.date.month, s_rtc.date.day,
+                            s_rtc.time.hours, s_rtc.time.minutes, s_rtc.time.seconds);
+}
+
 //-- reset.c 대신 백업 레지스터만 흉내낸다.
-void mockResetClear(void) { memset(s_backup, 0, sizeof(s_backup)); }
+void mockResetClear(void) { memset(s_backup, 0, sizeof(s_backup)); memset(&s_rtc, 0, sizeof(s_rtc)); }
 
 uint32_t resetGetBits(void)        { return s_backup[4]; }
 void     resetSetBits(uint32_t d)  { s_backup[4] = d; }

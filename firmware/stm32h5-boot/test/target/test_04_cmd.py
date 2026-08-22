@@ -49,7 +49,8 @@ def test_cdc_matches_hid(boot, hid):
 
     for p in reversed(ports):
         try:
-            s = serial.Serial(p, 115200, timeout=0.3)
+            # 115200 은 CLI 몫이다. cmd 는 다른 보율로 열어야 CDC 를 독점한다.
+            s = serial.Serial(p, 921600, timeout=0.3)
         except Exception:
             continue
         time.sleep(0.3)

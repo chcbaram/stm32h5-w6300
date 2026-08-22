@@ -96,6 +96,9 @@ target_include_directories(${EXECUTABLE} PRIVATE
   src/hw/driver/usb
   src/hw/driver/usb/usb_cdc
   src/hw/driver/usb/usb_msc
+  src/hw/driver/usb/usb_hid
+  src/hw/driver/usb/usb_cmp
+  src/ap/modules/cmd
   src/lib/ST/STM32_USB_Device_Library/Core/Inc    
 )
 

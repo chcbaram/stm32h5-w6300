@@ -151,9 +151,36 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8],
   memcpy(product_rev, rev, strlen(rev));
 }
 
+//-- 미디어(디스크)가 들어 있는지.
+//
+//   false + sense "MEDIUM NOT PRESENT" 를 돌려주면 호스트는 "디스크가 빠졌다" 로
+//   보고 볼륨을 조용히 언마운트한다. UF2 를 다 받은 뒤 그냥 USB 를 끊으면
+//   macOS 가 "디스크를 제대로 꺼내지 않았습니다" 를 띄우는데, 끊기 전에 이걸
+//   먼저 보고하면 사라질 수 있다.
+//
+//   실제로 효과가 있는지는 OS 마다 다르다. 자동 흐름에 넣기 전에 `uf2 eject`
+//   CLI 로 사람이 직접 확인할 수 있게 해뒀다.
+//
+static bool is_medium = true;
+
+void uf2DiskSetMedium(bool enable)
+{
+  is_medium = enable;
+}
+
+bool uf2DiskGetMedium(void)
+{
+  return is_medium;
+}
+
 bool tud_msc_test_unit_ready_cb(uint8_t lun)
 {
-  (void)lun;
+  if (is_medium != true)
+  {
+    // sense key 0x02(NOT READY) / ASC 0x3A(MEDIUM NOT PRESENT)
+    tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3A, 0x00);
+    return false;
+  }
   return true;
 }
 
@@ -187,6 +214,14 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition,
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset,
                           void *buffer, uint32_t bufsize)
 {
+  // 미디어가 빠졌다고 보고 중이면 읽기도 실패해야 한다. TEST UNIT READY 만
+  // 거부하면 호스트는 캐시로 읽어버려 디스크가 멀쩡한 줄 안다.
+  if (is_medium != true)
+  {
+    tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3A, 0x00);
+    return -1;
+  }
+
   (void)lun;
 
   memset(buffer, 0, bufsize);      // 데이터가 없는 영역 대응
@@ -244,6 +279,12 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset,
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset,
                            uint8_t *buffer, uint32_t bufsize)
 {
+  if (is_medium != true)
+  {
+    tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3A, 0x00);
+    return -1;
+  }
+
   (void)lun; (void)offset;
   uint32_t count = 0;
 

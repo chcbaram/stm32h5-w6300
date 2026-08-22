@@ -47,7 +47,7 @@ static bool is_init = false;
 // .non_cache 섹션은 링커스크립트에 정의되어 있지 않아 orphan 으로 배치된다.
 // 그 결과 startup 의 .data 복사(_sdata.._edata)와 .bss 클리어(_sbss.._ebss)
 // 어느 쪽에도 포함되지 않아 부팅 시 쓰레기값이 남고, 플래시도 낭비된다.
-// 부트로더는 DCACHE 를 켜지 않으므로 non-cacheable 배치 자체가 불필요하다.
+// non-cacheable 배치 자체가 불필요하므로 속성을 뗀다.
 static uart_tbl_t uart_tbl[UART_MAX_CH];
 
 static UART_HandleTypeDef huart1;
@@ -55,10 +55,15 @@ static DMA_NodeTypeDef Node_GPDMA1_Channel0;
 static DMA_QListTypeDef List_GPDMA1_Channel0;
 static DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
+//   UART3/4 는 물리 포트가 아니라 uartSetDriver() 로 붙는 가상 채널이다.
+//   NET  : cli_net.c   (텔넷)
+//   CMD  : drv_cli.c   (cmd 패킷 위의 CLI. HID/CDC 어느 쪽이든 여기로 온다)
+//   항목 수가 UART_MAX_CH 와 어긋나면 나머지가 0 으로 채워져 이름이 NULL 이 된다.
 static uart_hw_t uart_hw_tbl[UART_MAX_CH] = 
   {
     {"USART1 SWD   ", USART1, &huart1, false, NULL},
     {"USB CDC      ", NULL,   NULL   , false, NULL},
+    {"NET TELNET   ", NULL,   NULL   , false, NULL},
     {"CMD CLI      ", NULL,   NULL   , false, NULL},
   };
 

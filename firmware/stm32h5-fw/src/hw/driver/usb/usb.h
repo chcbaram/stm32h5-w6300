@@ -34,11 +34,20 @@ extern "C" {
 #include "usbd_msc.h"
 #endif
 
+#if HW_USE_HID == 1
+#include "usbd_hid.h"
+#endif
+
+#if HW_USE_CMP == 1
+#include "usbd_desc_cmp.h"
+#endif
+
 typedef enum UsbMode
 {
   USB_NON_MODE,
   USB_CDC_MODE,
-  USB_MSC_MODE
+  USB_MSC_MODE,
+  USB_CMP_MODE
 } UsbMode_t;
 
 typedef enum UsbType
@@ -57,6 +66,11 @@ bool usbIsConnect(void);
 
 UsbMode_t usbGetMode(void);
 UsbType_t usbGetType(void);
+
+//   composite 에서 클래스별 인스턴스를 지정할 때 쓴다.
+//   pdev->classId 는 "지금 처리 중인 클래스" 라 송신 시점에는 신뢰할 수 없다.
+uint8_t   usbGetCdcClassId(void);
+uint8_t   usbGetHidClassId(void);
 
 
 #endif

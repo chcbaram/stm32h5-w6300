@@ -17,6 +17,35 @@
 #define RTC_BKP_DR7   7
 #define RTC_BKP_DR8   8
 
+//-- RTC. boot_log.c 가 기록 시각을 채울 때 쓴다.
+//   호스트 시험에서는 mockRtcSet() 으로 원하는 시각을 넣는다.
+typedef struct
+{
+  uint8_t hours;
+  uint8_t minutes;
+  uint8_t seconds;
+} rtc_time_t;
+
+typedef struct
+{
+  uint8_t year;
+  uint8_t month;
+  uint8_t day;
+  uint8_t week;
+} rtc_date_t;
+
+typedef struct
+{
+  rtc_time_t time;
+  rtc_date_t date;
+} rtc_info_t;
+
+#define RTC_EPOCH_YEAR_MIN    2024
+
+bool     rtcGetInfo(rtc_info_t *p_info);
+uint32_t rtcGetEpoch(void);
+void     mockRtcSet(int year, int month, int day, int h, int m, int s);
+
 #define FLASH_SECTOR_SIZE   0x2000U
 
 void     logPrintf(const char *fmt, ...);

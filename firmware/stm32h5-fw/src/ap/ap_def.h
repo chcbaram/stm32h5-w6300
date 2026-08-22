@@ -9,5 +9,8 @@
 #include "module.h"
 #include "cli/cli_mgr.h"
 #include "boot/boot.h"
+#ifdef _USE_HW_CMD
+#include "cmd/cmd_task.h"
+#endif
 
 #endif

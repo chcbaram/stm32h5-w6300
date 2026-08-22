@@ -1,14 +1,19 @@
-//-- 펌웨어 갱신 패널 (부트로더 전용)
+//-- 펌웨어 갱신 패널
 //
-import { BOOT_CMD, parseVersion, parseInfo, parseLog, EVT_NAME, DEV_MODE_BOOT } from '../boot.js';
+import { BOOT_CMD, parseVersion, parseInfo, parseLog, EVT_NAME,
+         DEV_MODE_BOOT, DEV_MODE_APP } from '../boot.js';
 
 const CHUNK = 512;
 
 export const id    = 'firmware';
 export const title = '펌웨어';
 
-// 이 패널은 부트로더에서만 의미가 있다. 앱에는 FW_BEGIN/WRITE 커맨드가 없다.
-export const modes = [DEV_MODE_BOOT];
+//-- 부트로더와 앱 양쪽에서 쓴다.
+//
+//   커맨드 셋이 같기 때문이다. 다른 것은 적용 방식뿐이다. 부트로더는 슬롯을
+//   FIRM 에 바로 복사하고 점프하지만, 앱은 자기가 실행 중인 뱅크를 지울 수
+//   없으므로 슬롯에 받아두고 리셋한다 - 적용은 다음 부팅에 부트로더가 한다.
+export const modes = [DEV_MODE_BOOT, DEV_MODE_APP];
 
 export function render() {
   return `
@@ -24,19 +29,35 @@ export function render() {
       <div class="row">
         <input type="file" id="fwFile" accept=".bin">
         <button id="fwGo" class="primary" disabled>업데이트</button>
+        <button id="fwBoot" class="small" hidden>부트로더로 재진입</button>
       </div>
       <progress id="fwProg" value="0" max="100" hidden></progress>
     </div>
 
     <div class="card">
       <div class="row"><b>부트 이벤트 로그</b>
-        <button id="fwLogGet" class="small">읽기</button></div>
-      <table><thead><tr><th>#</th><th>이벤트</th><th>slot</th><th>from</th><th>to</th><th>PC</th></tr></thead>
-        <tbody id="fwLog"><tr><td colspan="6" class="muted">읽기를 누른다</td></tr></tbody></table>
+        <button id="fwLogGet" class="small">읽기</button>
+        <span class="muted small" id="fwLogCnt"></span></div>
+      <!-- 레코드가 최대 512개까지 쌓인다. 높이를 묶고 안에서 스크롤한다. -->
+      <div class="tbl-scroll">
+        <table><thead><tr>
+          <th>#</th><th>시각</th><th>이벤트</th><th>slot</th><th>from</th><th>to</th><th>PC</th>
+        </tr></thead>
+        <tbody id="fwLog"><tr><td colspan="7" class="muted">읽기를 누른다</td></tr></tbody></table>
+      </div>
     </div>`;
 }
 
 let fwData = null;
+
+//-- 기록 시각. 보드에 코인셀이 없어 RTC 를 모르는 구간이 있다.
+//   그때 펌웨어는 0 을 남기고, 여기서는 '-' 로 보여준다.
+function fmtTime(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts * 1000);
+  const p = (v) => String(v).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
 
 export function mount(ctx) {
   const { $, log, channel } = ctx;
@@ -50,15 +71,31 @@ export function mount(ctx) {
   };
 
   $('fwGo').onclick = () => update(ctx).catch(e => log(`실패: ${e.message}`, 'err'));
+
+  // 앱에서만 의미가 있다. 리셋 버튼을 물리적으로 두 번 누르는 대신 쓴다.
+  $('fwBoot').onclick = async () => {
+    const ch = channel();
+    if (!ch) return;
+    await ch.request(BOOT_CMD.FW_JUMP, null, 3000).catch(() => {});
+    log('부트로더로 재진입한다. 장치가 다시 열거되면 연결을 누른다.', 'muted');
+  };
   $('fwLogGet').onclick = () => readLog(ctx).catch(e => log(`로그 읽기 실패: ${e.message}`, 'err'));
 }
 
-export async function refresh({ $, channel }) {
+export async function refresh({ $, channel, isActive }) {
   const ch = channel();
   if (!ch) return;
 
-  const info = parseInfo((await ch.request(BOOT_CMD.INFO)).data);
-  const v = parseVersion((await ch.request(BOOT_CMD.VERSION)).data, info.slotMax);
+  const ri = await ch.request(BOOT_CMD.INFO);
+  if (ri.err) throw new Error(`INFO err=0x${ri.err.toString(16)}`);
+  const info = parseInfo(ri.data);
+
+  const rv = await ch.request(BOOT_CMD.VERSION);
+  if (rv.err) throw new Error(`VERSION err=0x${rv.err.toString(16)}`);
+  const v = parseVersion(rv.data, info.slotMax);
+
+  if (!isActive(id)) return;          // 기다리는 동안 탭이 바뀌었다
+  $('fwBoot').hidden = (info.mode !== DEV_MODE_APP);
 
   const row = (label, it) => it.valid
     ? `<tr><td>${label}</td><td>${it.ver || '-'}</td><td>${it.seq}</td>
@@ -118,19 +155,25 @@ async function update(ctx) {
 
     await ch.request(BOOT_CMD.FW_UPDATE, null, 5000).catch(() => {});
     log('  적용 요청 완료. 부트로더가 FIRM 에 복사한 뒤 재부팅한다.', 'ok');
-    log('  장치가 분리된다. 다시 쓰려면 리셋 더블클릭 후 재연결.', 'muted');
+    log('  장치가 분리된다. 다시 열거되면 연결을 누른다.', 'muted');
   } finally {
     $('fwGo').disabled = false;
   }
 }
 
-async function readLog({ $, channel }) {
+async function readLog({ $, channel, isActive }) {
   const ch = channel();
   if (!ch) return;
 
-  const n = new DataView((await ch.request(BOOT_CMD.LOG_COUNT)).data.buffer).getUint16(0, true);
+  const rc = await ch.request(BOOT_CMD.LOG_COUNT);
+  if (rc.err) throw new Error(`LOG_COUNT err=0x${rc.err.toString(16)}`);
+  if (rc.data.length < 2) throw new Error('LOG_COUNT 응답이 짧다');
+
+  const n = new DataView(rc.data.buffer, rc.data.byteOffset).getUint16(0, true);
+  if (!isActive(id)) return;
+  $('fwLogCnt').textContent = `${n} 건`;
   if (n === 0) {
-    $('fwLog').innerHTML = '<tr><td colspan="6" class="muted">기록 없음</td></tr>';
+    $('fwLog').innerHTML = '<tr><td colspan="7" class="muted">기록 없음</td></tr>';
     return;
   }
   const rows = [];
@@ -138,12 +181,16 @@ async function readLog({ $, channel }) {
     const idx = new Uint8Array(2);
     new DataView(idx.buffer).setUint16(0, i, true);
     const r = await ch.request(BOOT_CMD.LOG_READ, idx);
-    if (r.err) continue;
+    if (r.err || r.data.length < 32) continue;
     const g = parseLog(r.data);
     const h = (x) => '0x' + x.toString(16).toUpperCase().padStart(4, '0');
-    rows.push(`<tr><td>${i}</td><td>${EVT_NAME[g.event] || '?'}</td>
+    rows.push(`<tr><td>${i}</td><td>${fmtTime(g.timestamp)}</td><td>${EVT_NAME[g.event] || '?'}</td>
       <td>${g.slot === 0xFF ? '-' : g.slot}</td><td>${h(g.fromCrc)}</td><td>${h(g.toCrc)}</td>
       <td>${g.faultPc ? '0x' + g.faultPc.toString(16).padStart(8, '0') : '-'}</td></tr>`);
   }
+  if (!isActive(id)) return;
   $('fwLog').innerHTML = rows.join('');
+  // 최신 기록이 아래에 쌓이므로 열자마자 끝으로 보낸다.
+  const box = $('fwLog').closest('.tbl-scroll');
+  if (box) box.scrollTop = box.scrollHeight;
 }

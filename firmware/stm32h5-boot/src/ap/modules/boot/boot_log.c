@@ -14,6 +14,7 @@ static uint8_t  cur_sect = 0;        // 현재 append 중인 섹터
 static uint16_t cur_idx  = 0;        // 다음에 쓸 레코드 인덱스
 static uint32_t next_seq = 1;
 
+static uint32_t bootLogGetTime(void);
 static uint32_t bootLogSectAddr(uint8_t sect);
 static bool     bootLogReadRec(uint8_t sect, uint16_t idx, boot_log_t *p_log);
 static bool     bootLogRecIsBlank(uint8_t sect, uint16_t idx);
@@ -94,7 +95,7 @@ bool bootLogWrite(boot_evt_t evt, int8_t slot, uint32_t from_crc,
   log.event      = (uint8_t)evt;
   log.slot       = (slot < 0) ? 0xFF : (uint8_t)slot;
   log.reset_bits = (uint16_t)resetGetBits();
-  log.timestamp  = 0;
+  log.timestamp  = bootLogGetTime();
   log.from_crc   = from_crc;
   log.to_crc     = to_crc;
   log.fault_pc   = fault_pc;
@@ -113,6 +114,24 @@ bool bootLogWrite(boot_evt_t evt, int8_t slot, uint32_t from_crc,
   cur_idx++;
   next_seq++;
   return true;
+}
+
+//-- 기록 시각.
+//
+//   보드에 코인셀이 없어 전원을 뽑으면 RTC 가 초기화된다. rtcGetEpoch() 은 그때
+//   0 을 돌려주고, 조회하는 쪽(CLI/웹)은 0 을 "시각 없음" 으로 표시한다.
+//
+//   RTC 는 리셋에는 살아남으므로, 앱이 SNTP 나 호스트 동기화로 한 번 맞춰두면
+//   그 뒤의 롤백/폴트 복구 기록에는 제대로 된 시각이 남는다. 그게 정작 알고
+//   싶은 경우다.
+//
+static uint32_t bootLogGetTime(void)
+{
+#ifdef _USE_HW_RTC
+  return rtcGetEpoch();
+#else
+  return 0;
+#endif
 }
 
 //-- 조회는 두 섹터를 seq 순으로 이어 붙여 본다.

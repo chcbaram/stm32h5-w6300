@@ -46,6 +46,9 @@ void     uf2RequestJump(void);
 bool     uf2IsBusy(void);
 uint8_t  uf2GetPercent(void);
 
+void     uf2DiskSetMedium(bool enable);
+bool     uf2DiskGetMedium(void);
+
 int      uf2WriteBlock(uint32_t block_no, uint8_t *data, WriteState *state);
 bool     uf2FlashComplete(WriteState *state);
 

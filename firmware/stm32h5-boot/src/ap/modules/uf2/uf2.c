@@ -1,5 +1,10 @@
 #include "uf2.h"
+#include "cli.h"
 
+
+#if CLI_USE(HW_BOOT)
+static void cliUf2(cli_args_t *args);
+#endif
 
 static bool     is_init      = false;
 static bool     is_done_req  = false;
@@ -36,6 +41,10 @@ bool uf2Init(void)
   logPrintf("[OK] uf2Init()\n");
   logPrintf("     familyID  : 0x%08X\n", (unsigned int)BOARD_UF2_FAMILY_ID);
   logPrintf("     max fw    : %d KB\n", (int)(UF2_MAX_FW_SIZE/1024));
+
+#if CLI_USE(HW_BOOT)
+  cliAdd("uf2", cliUf2);
+#endif
   return true;
 }
 
@@ -397,3 +406,78 @@ void uf2Update(void)
       break;
   }
 }
+
+
+#if CLI_USE(HW_BOOT)
+//-- UF2 / MSC 시험 명령.
+//
+//   `uf2 eject` 는 "미디어가 빠졌다" 고 보고한다. macOS 가 UF2 복사 후에
+//   "디스크를 제대로 꺼내지 않았습니다" 를 띄우는데, USB 를 끊기 전에 이걸 먼저
+//   보고하면 조용히 언마운트될 수 있다. 효과가 OS 마다 달라서 자동 흐름에 넣기
+//   전에 사람이 직접 확인할 수 있게 분리해뒀다.
+//
+//   시험 방법
+//     1) 리셋 더블클릭으로 부트 모드 진입 -> H5BOOT 볼륨이 마운트된다
+//     2) SWD CLI 에서 `uf2 eject`
+//     3) 경고 없이 볼륨이 사라지면 성공. 뜨면 이 방법으로는 안 되는 것이다
+//     4) `uf2 insert` 로 되돌린다 (호스트가 다시 붙인다)
+//
+void cliUf2(cli_args_t *args)
+{
+  bool ret = false;
+
+  if (args->argc == 1 && args->isStr(0, "info"))
+  {
+    cliPrintf("familyID  : 0x%08X\n", (unsigned int)BOARD_UF2_FAMILY_ID);
+    cliPrintf("max fw    : %d KB\n", (int)(UF2_MAX_FW_SIZE/1024));
+    cliPrintf("busy      : %d\n", uf2IsBusy());
+    cliPrintf("percent   : %d %%\n", uf2GetPercent());
+    cliPrintf("medium    : %s\n", uf2DiskGetMedium() ? "present" : "not present");
+    ret = true;
+  }
+
+  if (args->argc == 1 && args->isStr(0, "eject"))
+  {
+    uf2DiskSetMedium(false);
+    cliPrintf("medium not present 로 보고한다.\n");
+    cliPrintf("호스트가 볼륨을 내리는지 본다. 경고가 뜨면 이 방법은 소용이 없다.\n");
+    ret = true;
+  }
+
+  if (args->argc == 1 && args->isStr(0, "insert"))
+  {
+    uf2DiskSetMedium(true);
+    cliPrintf("medium present 로 되돌렸다.\n");
+    ret = true;
+  }
+
+  //   실제 UF2 완료 흐름과 같은 순서로 시험한다.
+  //   eject 보고 -> 잠깐 대기 -> USB 분리. 이 조합에서 경고가 뜨는지가 관건이다.
+  if (args->argc == 1 && args->isStr(0, "unplug"))
+  {
+    uf2DiskSetMedium(false);
+    cliPrintf("eject 보고 후 500ms 대기...\n");
+    delay(500);
+    usbDisconnect();
+    cliPrintf("usbDisconnect(). `uf2 plug` 로 다시 붙인다.\n");
+    ret = true;
+  }
+
+  if (args->argc == 1 && args->isStr(0, "plug"))
+  {
+    uf2DiskSetMedium(true);
+    usbConnect();
+    cliPrintf("usbConnect()\n");
+    ret = true;
+  }
+
+  if (ret == false)
+  {
+    cliPrintf("uf2 info\n");
+    cliPrintf("uf2 eject     - medium not present 로 보고\n");
+    cliPrintf("uf2 insert    - 되돌리기\n");
+    cliPrintf("uf2 unplug    - eject 보고 + 500ms + USB 분리 (실제 흐름과 동일)\n");
+    cliPrintf("uf2 plug      - USB 재연결\n");
+  }
+}
+#endif

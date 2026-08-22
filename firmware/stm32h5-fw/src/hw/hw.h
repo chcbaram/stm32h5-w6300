@@ -20,6 +20,7 @@ extern "C" {
 #include "util_core.h"
 #include "usb.h"
 #include "cdc.h"
+#include "hid.h"
 #include "gpio.h"
 #include "flash.h"
 #include "wiz_spi.h"

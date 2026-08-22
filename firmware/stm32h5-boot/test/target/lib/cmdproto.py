@@ -55,6 +55,12 @@ class CmdChannel:
             if len(buf) - i < 9:
                 continue
             _, _, typ, rcmd, err, ln = struct.unpack("<BBBHHH", buf[i:i+9])
+            # 응답이 아니면(예: 115200 으로 열어 CLI 가 CDC 를 쥐고 있을 때의 에코)
+            # 그 자리를 건너뛰고 계속 찾는다. 에코를 응답으로 오인하면 0 을
+            # 돌려주며 조용히 성공한 것처럼 보인다.
+            if typ != PKT_TYPE_RESP or rcmd != cmd:
+                buf = buf[i+2:]
+                continue
             if len(buf) - i < 9 + ln + 1:
                 continue
             payload = buf[i+9 : i+9+ln]
@@ -86,7 +92,7 @@ class SerialTransport:
 class HidTransport:
     """WebHID 와 동일한 방식의 HID 채널.
 
-    HID 는 스트림이 아니라 64바이트 고정 리포트 단위다. 펌웨어(cmd_hid.c)와 같은
+    HID 는 스트림이 아니라 64바이트 고정 리포트 단위다. 펌웨어(drv_hid.c)와 같은
     규약을 쓴다.
         리포트[0]  = 유효 바이트 수 (1~63)
         리포트[1:] = 페이로드
