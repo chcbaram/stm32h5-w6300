@@ -143,7 +143,7 @@ export async function refresh({ $, channel, isActive }) {
 }
 
 async function update(ctx) {
-  const { $, log, channel } = ctx;
+  const { $, log, channel, isActive } = ctx;
   const ch = channel();
   if (!ch || !fwData) return;
 
@@ -194,6 +194,9 @@ async function update(ctx) {
     if (ru && ru.err === ERR_NO_PENDING) {
       log('  적용할 것이 없다. 슬롯에 받아둔 이미지가 지금 실행 중인 것과 같다.', 'muted');
       log('  슬롯 기록은 끝났다. 다른 펌웨어를 올리면 그때 적용된다.', 'muted');
+      // 슬롯 내용은 바뀌었으니 표를 새로 읽는다. 안 하면 옛 seq/CRC 가 남아
+      // "기록이 안 됐나" 로 보인다.
+      await refresh(ctx).catch(() => {});
       return;
     }
     if (ru && ru.err) {

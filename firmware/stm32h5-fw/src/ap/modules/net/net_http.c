@@ -85,13 +85,27 @@ bool netHttpInit(void)
   return true;
 }
 
+//-- 재진입 방지.
+//
+//   커맨드 처리가 길어질 수 있다. LAN 스캔은 800ms 동안 delay() 로 돌고, 그
+//   delay() 는 cliLoopIdle() -> moduleUpdate() 를 부르므로 여기로 다시 들어온다.
+//   그대로 두면 처리 중인 연결에 다음 요청을 겹쳐 처리하고 응답이 뒤섞인다.
+//   실제로 웹에서 스캔을 누르면 "스캔 중..." 에서 멈췄다.
+//
 void netHttpUpdate(void)
 {
+  static bool is_busy = false;
+
   if (is_init != true || wiznetIsInit() != true)
     return;
 
+  if (is_busy)
+    return;
+
+  is_busy = true;
   for (uint8_t i = 0; i < HTTP_SN_CNT; i++)
     httpPoll(&conn[i]);
+  is_busy = false;
 }
 
 void httpPoll(http_conn_t *p_conn)

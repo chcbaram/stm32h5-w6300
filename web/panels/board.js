@@ -43,8 +43,8 @@ export function render() {
           <tr><td colspan="6" class="muted">스캔을 누른다</td></tr>
         </tbody></table>
       </div>
-      <p class="muted small" style="margin:8px 0 0">
-        브라우저는 네트워크를 직접 훑을 수 없다. USB 로 붙은 이 보드가 대신
+      <p class="muted small" style="margin:8px 0 0" id="bdScanNote">
+        브라우저는 네트워크를 직접 훑을 수 없다. 지금 연결된 보드가 대신
         브로드캐스트를 던지고 응답한 보드를 모아 돌려준다.
       </p>
     </div>

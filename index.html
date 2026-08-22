@@ -22,6 +22,9 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:8px;
         padding:14px 16px;margin:0 0 14px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  /* .row 의 display:flex 가 [hidden] 의 display:none 을 특이도로 이긴다.
+     hidden 을 걸었는데도 그대로 보이는 일이 실제로 있었다. */
+  [hidden]{display:none !important}
   button{font:inherit;padding:7px 15px;border-radius:6px;border:1px solid var(--line);
          background:var(--bg);color:var(--fg);cursor:pointer}
   button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -62,9 +65,9 @@
 <body>
 <div class="wrap">
   <h1>STM32H5-W6300</h1>
-  <p class="sub">WebHID 로 보드에 직접 연결한다. 펌웨어 갱신과 보드 상태 확인.</p>
+  <p class="sub" id="subText">WebHID 로 보드에 직접 연결한다. 펌웨어 갱신과 보드 상태 확인.</p>
 
-  <p class="warn">
+  <p class="warn" id="warnText">
     Chrome 또는 Edge 가 필요하다 (WebHID 미지원 브라우저에서는 동작하지 않는다).<br>
     펌웨어를 갱신하려면 보드의 <b>리셋 버튼을 빠르게 두 번</b> 눌러 부트로더로 진입한 뒤 연결한다.
   </p>
@@ -266,8 +269,14 @@ selectPanel(PANELS[0]);
 
 //-- 보드가 서빙한 페이지면 바로 붙는다. 고를 장치가 하나뿐이라 물어볼 것이 없다.
 if (isBoardHosted()) {
-  $('ipRow').hidden = true;         // 이미 보드에 와 있다
+  // 이미 보드에 와 있다. WebHID 얘기는 여기서 맞지 않는다.
+  $('ipRow').hidden = true;
   $('btnConnect').hidden = true;
+  $('subText').textContent =
+    '보드가 서빙하는 페이지다. 네트워크로 연결한다. 펌웨어 갱신과 보드 상태 확인.';
+  $('warnText').innerHTML =
+    '이 페이지는 보드 안에 들어 있다. USB 없이 네트워크만으로 동작하고, ' +
+    '브라우저를 가리지 않는다.<br>펌웨어를 갱신하면 이 페이지도 함께 바뀐다.';
   log('보드가 서빙한 페이지다. 네트워크로 바로 연결한다.', 'muted');
   connect().catch(e => log(`연결 실패: ${e.message}`, 'err'));
 } else if (!('hid' in navigator)) {
