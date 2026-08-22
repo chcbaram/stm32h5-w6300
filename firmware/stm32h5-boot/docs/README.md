@@ -20,6 +20,8 @@ STM32H563 용 UF2 / CDC / WebHID 부트로더. 구현 단계별로 번호를 붙
 | [09b-power-loss.md](09b-power-loss.md) | 전원 손실 강건성 |
 | [12-app-changes.md](12-app-changes.md) | 앱 측 변경 목록 |
 | [13-test.md](13-test.md) | 호스트/타깃 테스트 |
+| [15-app-hid.md](15-app-hid.md) | 앱에 HID/composite + cmd 채널. PMA·IAD·CDC 스트림 공유 함정 |
+| [16-rtc-time.md](16-rtc-time.md) | 보드 시각(RTC epoch). 부트 로그 타임스탬프 · 웹 동기화 |
 | [14-roadmap.md](14-roadmap.md) | **남은 설계와 결정 근거** |
 
 호스트 유닛 테스트는 하드웨어 없이 돈다.

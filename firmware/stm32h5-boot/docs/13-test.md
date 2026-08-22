@@ -53,7 +53,7 @@ python3 -m pytest test_01_flash.py   # 일부
 | `test_01_flash.py` | 보호/정렬/**쿼드워드 재기록** 가드, 뱅크1·2 소거·기록 |
 | `test_02_reset.py` | 소프트 리셋 미집계, 폴트 카운터(`md` 로 하드폴트 유발) |
 | `test_03_boot.py` | 슬롯 판정 일관성, 부트 로그 |
-| `test_04_cmd.py` | CDC 와 HID 가 같은 값을 돌려주는지 |
+| `test_04_cmd.py` | CDC 와 HID 가 같은 값을 돌려주는지. **CDC 는 921600 으로 연다** — 115200 은 CLI 몫이라 cmd 채널이 응답하지 않는다 |
 | `test_05_update.py` | UF2 드롭 갱신, HID 다운로드 |
 
 현재 `test_01` + `test_03` **11 passed** (2분 9초).

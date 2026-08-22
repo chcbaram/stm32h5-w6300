@@ -22,11 +22,20 @@
 아래는 **두 프로젝트에 같은 내용**을 둔다. 한쪽을 고치면 반대쪽에 복사한다.
 
 ```
-src/common/hw/include/{reset.h, fault.h}
-src/hw/driver/{reset.c, fault.c, flash.c}
+src/common/hw/include/{reset.h, fault.h, cmd.h}
+src/hw/driver/{reset.c, fault.c, flash.c, cmd.c}
 src/ap/modules/boot/{boot.c, boot.h, boot_log.c, boot_log.h}
 src/ap/modules/common/cli/cli_mgr.c
+src/ap/modules/cmd/{cmd_task.c, cmd_task.h}
+src/ap/modules/cmd/driver/{drv_usb.c, drv_cli.c}
+src/ap/modules/cmd/process/cmd_boot.c
 ```
+
+**`drv_hid.c` 만 예외다.** 부트로더는 TinyUSB, 앱은 ST 스택을 부른다.
+리포트 규약(선두 바이트 = 유효 길이)은 동일하다.
+
+채널 드라이버는 `drv_` 접두어로 통일했다 — 파일명·함수명·변수명 모두.
+`drv_usb_driver`/`drvUsb*()`, `drv_hid_driver`/`drvHid*()`, `drvCli*()`.
 
 동작 차이는 매크로로만 갈린다.
 
@@ -78,10 +87,31 @@ python3 tools/download/download.py            # CDC
 python3 tools/download/download.py --hid      # HID
 ```
 
+## USB composite (CDC + HID)
+
+앱도 부트로더와 같은 VID/PID 로 열거되고 같은 커맨드 셋에 답한다.
+설계와 함정은 `15-app-hid.md` 에 따로 정리했다. 요약만 적으면:
+
+| 항목 | 값 |
+|---|---|
+| 인터페이스 | ITF0/1 CDC(IAD) · ITF2 HID(vendor 0xFF00) |
+| 엔드포인트 | CDC 0x81/0x01/0x82 · HID 0x83/0x03 |
+| PMA | 464B / 2048B |
+| 구성 디스크립터 | 107B |
+
+`usbd_conf.h` 에 다음을 명시해야 한다. 빠뜨리면 조용히 오동작한다.
+
+```c
+#define USE_USBD_COMPOSITE
+#define USBD_COMPOSITE_USE_IAD   1     // 기본값이 없다. 빼면 윈도우 VCP 실패
+#define USBD_MAX_NUM_INTERFACES  3
+#define USBD_MAX_SUPPORTED_CLASS 2U
+```
+
 ## 실측 결과
 
 ```
-FLASH 148,976 B / 445 KB (32.7%)
+FLASH 165,088 B / 445 KB (36.2%)
 ```
 
 UF2 로 갱신 후 앱이 정상 부팅하고 USB CDC · W6300 이더넷(DHCP/SNTP)까지 동작한다.

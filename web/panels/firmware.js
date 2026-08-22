@@ -1,7 +1,7 @@
 //-- 펌웨어 갱신 패널
 //
 import { BOOT_CMD, parseVersion, parseInfo, parseLog, EVT_NAME,
-         DEV_MODE_BOOT, DEV_MODE_APP } from '../boot.js';
+         DEV_MODE_BOOT, DEV_MODE_APP, epochToText } from '../boot.js';
 
 const CHUNK = 512;
 
@@ -52,11 +52,12 @@ let fwData = null;
 
 //-- 기록 시각. 보드에 코인셀이 없어 RTC 를 모르는 구간이 있다.
 //   그때 펌웨어는 0 을 남기고, 여기서는 '-' 로 보여준다.
+//
+//   반드시 epochToText() 를 거친다. 보드 시각은 "달력 필드를 UTC 로 간주해 만든
+//   epoch" 이라, new Date().getHours() 같은 지역시 접근자로 읽으면 타임존만큼
+//   밀린다(KST 면 9시간). 표는 연도를 빼고 보여준다.
 function fmtTime(ts) {
-  if (!ts) return '-';
-  const d = new Date(ts * 1000);
-  const p = (v) => String(v).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return ts ? epochToText(ts).slice(5) : '-';
 }
 
 export function mount(ctx) {
