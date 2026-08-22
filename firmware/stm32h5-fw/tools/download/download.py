@@ -18,6 +18,7 @@ from cmdproto import (CmdChannel, SerialTransport, HidTransport,
                       BOOT_CMD_VERSION, parse_version)
 
 CHUNK = 512      # cmd 최대 데이터 1024B. offset 4B 를 빼고도 여유가 있다.
+ERR_BOOT_NO_PENDING = 0x0016   # 적용할 것 없음(슬롯 == FIRM)
 CMD_BAUD = 921600   # 115200 이 아니면 무엇이든 된다. USB CDC 라 실제 속도와 무관하다.
 
 
@@ -105,7 +106,19 @@ def main():
         print("  (--no-jump : 적용하지 않았다. 부트로더가 다음 부팅에 적용한다)")
         return
 
-    ch.request(BOOT_CMD_FW_UPDATE, timeout=5.0)
+    # 응답을 확인한다. 슬롯 내용이 지금 FIRM 과 같으면 부트로더가 할 일이 없어서
+    # 리셋해도 아무 일이 없다. 그걸 "적용됐다" 고 말하면 안 된다.
+    try:
+        r = ch.request(BOOT_CMD_FW_UPDATE, timeout=5.0)
+    except TimeoutError:
+        r = None                      # 적용을 시작하며 리셋한 경우다. 정상.
+
+    if r and r["err"] == ERR_BOOT_NO_PENDING:
+        print("  적용   할 것이 없다. 슬롯 이미지가 지금 실행 중인 것과 같다.")
+        return
+    if r and r["err"]:
+        sys.exit(f"FW_UPDATE 실패 err=0x{r['err']:04X}")
+
     print("  적용   요청 완료. 부트로더가 FIRM 에 복사한 뒤 재부팅한다.")
 
 

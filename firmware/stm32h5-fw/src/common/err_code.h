@@ -22,6 +22,10 @@
 #define ERR_BOOT_TAG_SIZE             0x0014
 #define ERR_BOOT_FLASH_READ           0x0015
 
+//   적용할 것이 없다. 슬롯에 받아둔 이미지가 지금 FIRM 과 같아서 바꿀 게 없다.
+//   실패가 아니라 "할 일 없음" 이므로 호스트는 이것만 따로 안내한다.
+#define ERR_BOOT_NO_PENDING           0x0016
+
 
 #define ERR_CMD_MAX_LENGTH            0x0020
 #define ERR_CMD_CHECKSUM              0x0021

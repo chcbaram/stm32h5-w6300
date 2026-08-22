@@ -27,6 +27,9 @@ export const EVT_NAME = ['?', 'UPDATE', 'ROLLBACK', 'FAULT_RECOVER', 'VERIFY_FAI
 export const DEV_MODE_BOOT = 0;
 export const DEV_MODE_APP  = 1;
 
+//   "적용할 것이 없다" - 실패가 아니라 할 일 없음이다.
+export const ERR_NO_PENDING = 0x0016;
+
 export const RTC_OP_GET = 0;
 export const RTC_OP_SET = 1;
 

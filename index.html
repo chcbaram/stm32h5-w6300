@@ -196,6 +196,8 @@ navigator.hid?.addEventListener('disconnect', (e) => {
     if (channel) channel.detach();
     channel = null;
     devInfo = null;
+    // 패널이 화면에 남겨둔 장치별 내용을 비울 기회를 준다.
+    if (current && current.onDisconnect) current.onDisconnect(ctx);
     showMode();
     buildTabs();
   }

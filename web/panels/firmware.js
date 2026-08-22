@@ -1,7 +1,7 @@
 //-- 펌웨어 갱신 패널
 //
 import { BOOT_CMD, parseVersion, parseInfo, parseLog, EVT_NAME,
-         DEV_MODE_BOOT, DEV_MODE_APP, epochToText } from '../boot.js';
+         DEV_MODE_BOOT, DEV_MODE_APP, epochToText, ERR_NO_PENDING } from '../boot.js';
 
 const CHUNK = 512;
 
@@ -60,6 +60,25 @@ function fmtTime(ts) {
   return ts ? epochToText(ts).slice(5) : '-';
 }
 
+//-- 표를 읽기 전 상태로 되돌린다.
+//
+//   장치를 새로 연결하거나 분리하면 화면의 목록은 더 이상 지금 보드의 것이
+//   아니다. 그대로 두면 업데이트 뒤 재연결했을 때 옛 목록을 보고 "기록이 안
+//   남았다" 고 오해한다. 보드 플래시의 로그는 건드리지 않는다 - 전원을 뽑아도
+//   남는 것이 그 로그의 존재 이유다(지우려면 CLI 의 `boot log clear`).
+//
+function resetLogTable($) {
+  const tb = $('fwLog');
+  const cnt = $('fwLogCnt');
+  if (tb)  tb.innerHTML = '<tr><td colspan="7" class="muted">읽기를 누른다</td></tr>';
+  if (cnt) cnt.textContent = '';
+}
+
+// 장치가 빠지면 화면도 비운다(index.html 이 부른다).
+export function onDisconnect({ $ }) {
+  resetLogTable($);
+}
+
 export function mount(ctx) {
   const { $, log, channel } = ctx;
 
@@ -97,6 +116,7 @@ export async function refresh({ $, channel, isActive }) {
 
   if (!isActive(id)) return;          // 기다리는 동안 탭이 바뀌었다
   $('fwBoot').hidden = (info.mode !== DEV_MODE_APP);
+  resetLogTable($);                   // 이전 연결의 목록을 남기지 않는다
 
   const row = (label, it) => it.valid
     ? `<tr><td>${label}</td><td>${it.ver || '-'}</td><td>${it.seq}</td>
@@ -154,7 +174,21 @@ async function update(ctx) {
     if (r.err) throw new Error(`FW_VERIFY err=0x${r.err.toString(16)}`);
     log('  검증 OK', 'ok');
 
-    await ch.request(BOOT_CMD.FW_UPDATE, null, 5000).catch(() => {});
+    //   응답을 확인해야 한다. 슬롯 내용이 지금 FIRM 과 같으면 부트로더가 할 일이
+    //   없어서, 그냥 리셋하면 아무 일도 없이 재부팅만 한다. 그걸 "적용됐다" 고
+    //   말하면 안 된다.
+    const ru = await ch.request(BOOT_CMD.FW_UPDATE, null, 5000).catch(() => null);
+
+    if (ru && ru.err === ERR_NO_PENDING) {
+      log('  적용할 것이 없다. 슬롯에 받아둔 이미지가 지금 실행 중인 것과 같다.', 'muted');
+      log('  슬롯 기록은 끝났다. 다른 펌웨어를 올리면 그때 적용된다.', 'muted');
+      return;
+    }
+    if (ru && ru.err) {
+      log(`  적용 요청 실패 err=0x${ru.err.toString(16).padStart(4, '0')}`, 'err');
+      return;
+    }
+
     log('  적용 요청 완료. 부트로더가 FIRM 에 복사한 뒤 재부팅한다.', 'ok');
     log('  장치가 분리된다. 다시 열거되면 연결을 누른다.', 'muted');
   } finally {

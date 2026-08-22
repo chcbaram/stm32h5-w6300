@@ -395,8 +395,11 @@ bool cmdBootProcess(cmd_t *p_cmd)
         usbConnect();
       }
 #else
-      if (bootGetPendingSlot() < 0 && wr_slot < 0)
-        err_code = ERR_BOOT_WRONG_CMD;
+      //   슬롯에 받아둔 것이 지금 FIRM 과 같으면 부트로더가 할 일이 없다.
+      //   그대로 리셋하면 아무 일도 없이 재부팅만 하고, 부트 이벤트 로그에도
+      //   남지 않아 호스트는 "적용됐다" 고 잘못 안다. 여기서 걸러 알려준다.
+      if (bootGetPendingSlot() < 0)
+        err_code = ERR_BOOT_NO_PENDING;
 
       cmdSendResp(p_cmd, cmd, err_code, NULL, 0);
 
@@ -405,6 +408,10 @@ bool cmdBootProcess(cmd_t *p_cmd)
         logPrintf("[  ] cmd fw update -> reset\n");
         delay(300);                     // 응답이 호스트에 전달될 시간을 준다
         resetToUpdate();
+      }
+      else
+      {
+        logPrintf("[  ] cmd fw update : 적용할 것이 없다(FIRM 과 동일)\n");
       }
 #endif
       break;
