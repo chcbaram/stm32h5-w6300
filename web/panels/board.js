@@ -115,6 +115,24 @@ export function mount(ctx) {
 //   content). 다만 **최상위 이동은 허용**되므로 새 탭으로 여는 것은 된다.
 //   그 뒤로는 보드 자체 웹서버가 상대한다.
 //
+//-- 보드 웹페이지로 넘어가는 칸.
+//
+//   HTTPS(GitHub Pages)에서 http://보드IP 로 fetch/WebSocket 은 mixed content 로
+//   막히지만 **최상위 이동은 허용**된다. 그래서 새 탭으로 여는 방식이다.
+//
+//   다만 아직 보드에 웹서버가 없다(14-roadmap.md C). 지킬 수 없는 링크를 그려
+//   놓으면 눌렀을 때 연결 거부만 보게 되므로, 서버가 생길 때까지는 그렇게
+//   알린다. C 를 구현하면 BOARD_HTTP 를 true 로 바꾸고 링크가 살아난다.
+//
+const BOARD_HTTP = false;
+
+function openCell(b) {
+  if (!BOARD_HTTP)
+    return '<span class="muted">웹서버 없음</span>';
+
+  return `<a href="http://${b.ip}/" target="_blank" rel="noopener">열기</a>`;
+}
+
 //-- LAN 스캔.
 //
 //   보드가 800ms 동안 응답을 모으므로 타임아웃을 넉넉히 준다.
@@ -145,9 +163,7 @@ async function scanNet(ctx) {
           <td>${b.ip}</td>
           <td>${b.mode === DEV_MODE_BOOT ? '부트로더' : '앱'}</td>
           <td>${b.name}</td><td>${b.version}</td><td>${b.mac}</td>
-          <td>${b.ip === self
-                ? '<span class="muted">이 보드</span>'
-                : `<a href="http://${b.ip}/" target="_blank" rel="noopener">열기</a>`}</td>
+          <td>${b.ip === self ? '<span class="muted">이 보드</span>' : openCell(b)}</td>
         </tr>`).join('');
   } finally {
     $('bdScan').disabled = false;
@@ -190,7 +206,8 @@ async function readNet(ctx) {
     <tr><th>DNS</th><td>${n.dns}</td></tr>
     <tr><th>MAC</th><td>${n.mac}</td></tr>`;
 
-  if (n.ipGet && n.ip !== '0.0.0.0') {
+  //   보드에 웹서버가 생기기 전까지는 감춘다. 위 openCell() 의 주석을 본다.
+  if (BOARD_HTTP && n.ipGet && n.ip !== '0.0.0.0') {
     link.href   = `http://${n.ip}/`;
     link.textContent = `보드 웹페이지 열기 (${n.ip})`;
     link.hidden = false;
