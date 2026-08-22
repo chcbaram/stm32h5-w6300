@@ -127,7 +127,7 @@ python3 tools/download/download.py <bin> --port <앱 CDC>
 # 문서 그림을 고치면 다시 만든다 (SVG 는 손으로 편집하지 않는다)
 cd firmware/stm32h5-boot/docs/images
 python3 gen_memory_map.py      # 메모리 맵
-python3 gen_slot_diagram.py    # 슬롯 핑퐁 / 롤백 / 폴트 복구
+python3 gen_diagrams.py        # 슬롯 핑퐁 / 롤백 / 폴트 복구 / OTA 경로
 #   확인 : rsvg-convert -b '#ffffff' -o /tmp/a.png <파일>.svg   (밝은 배경)
 #          rsvg-convert -b '#0d1117' -o /tmp/b.png <파일>.svg   (어두운 배경)
 #   렌더한 PNG 를 실제로 눈으로 볼 것. 글자가 잘리거나 겹치는 것은 그래야 보인다.

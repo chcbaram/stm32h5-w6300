@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""슬롯 핑퐁과 롤백 그림 생성기.
+"""문서용 그림 생성기 (메모리 맵은 gen_memory_map.py 에 따로 있다).
 
-  python3 gen_slot_diagram.py
+  python3 gen_diagrams.py
 
   slot-pingpong.svg   v1 -> v2 -> 롤백 -> v3 상태 전이
   rollback-flow.svg   부팅 판정과 롤백 흐름
+  fault-recovery.svg  폴트 카운터와 자동 복구
+  ota-paths.svg       업데이트 경로와 적용 순서
 
 확인:  rsvg-convert -b '#ffffff' -o /tmp/a.png slot-pingpong.svg
        rsvg-convert -b '#0d1117' -o /tmp/b.png slot-pingpong.svg
@@ -207,12 +209,96 @@ def gen_fault():
     return "".join(s)
 
 
+# ------------------------------------------------- 업데이트 경로 / OTA
+def gen_ota():
+    """왜 전송을 하나 더 붙이는 것이 쌌는지, 그리고 왜 두 단계로 나뉘는지."""
+    W = 1020
+
+    #-- 위쪽 : 전송계층이 달라도 커맨드 셋은 하나다
+    HOSTS = [
+        ("download.py --tcp",  "drv_tcp.c",  "TCP 5301"),
+        ("download.py",        "drv_usb.c",  "USB CDC"),
+        ("웹페이지 (USB)",      "drv_hid.c",  "USB HID"),
+        ("웹페이지 (보드)",     "net_http.c", "POST /cmd"),
+    ]
+    BW1, BH1, VG = 190, 40, 12
+    XH, XD, XC   = 40, 262, 520
+    TOP          = 92
+    n            = len(HOSTS)
+    midy         = TOP + (n * (BH1 + VG) - VG) / 2
+
+    s = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="640" '
+         f'viewBox="0 0 {W} 640">', DEFS]
+    s.append(label(XH, 26, "업데이트 경로 — 전송만 다르고 나머지는 하나다", 14, "start", "bold"))
+    s.append(label(XH, 44, "cmd.c 가 전송계층과 무관해서, 새 경로는 여섯 함수(open/close/available/flush/read/write)만 채우면 된다.",
+                   11, "start"))
+    s.append(label(XH, 62, "이더넷 OTA 가 drv_tcp.c 하나로 끝난 이유다. 부트로더는 손댄 것이 없다.",
+                   11, "start"))
+
+    s.append(label(XH + BW1/2, TOP - 14, "호스트", 11, "middle"))
+    s.append(label(XD + BW1/2, TOP - 14, "채널 드라이버", 11, "middle"))
+    s.append(label(XC + 105,   TOP - 14, "공용", 11, "middle"))
+
+    for i, (host, drv, via) in enumerate(HOSTS):
+        y = TOP + i * (BH1 + VG)
+        s.append(box(XH, y, BW1, BH1, C_OLD,  [host], 11))
+        s.append(box(XD, y, BW1, BH1, C_KEEP, [drv, via], 10))
+        s.append(arrow(XH + BW1 + 4, y + BH1/2, XD - 6, y + BH1/2))
+        s.append(f'<path d="M{XD + BW1 + 4} {y + BH1/2} H{XC - 30} V{midy}" '
+                 f'fill="none" stroke="{C_LINE}" stroke-width="1.5"/>')
+    s.append(arrow(XC - 30, midy, XC - 6, midy))
+
+    s.append(box(XC, midy - 46, 210, 40, C_FIRM, ["cmd.c"], 12))
+    s.append(box(XC, midy -  2, 210, 40, C_FIRM, ["cmd_boot.c"], 12))
+    s.append(label(XC + 105, midy + 60, "커맨드 셋 하나", 11))
+    s.append(label(XC + 105, midy + 76, "FW_BEGIN / ERASE / WRITE", 10))
+    s.append(label(XC + 105, midy + 90, "END / VERIFY / UPDATE", 10))
+
+    s.append(arrow(XC + 210 + 4, midy - 26, XC + 250, midy - 26))
+    s.append(box(XC + 256, midy - 46, 150, 84, C_DEAD, ["슬롯", "(뱅크2)"], 12))
+
+    #-- 아래쪽 : 적용은 두 단계다
+    Y2 = 380
+    s.append(label(XH, Y2, "적용은 두 단계 — 앱은 자기가 실행 중인 뱅크1 을 지울 수 없다",
+                   14, "start", "bold"))
+    s.append(label(XH, Y2 + 18,
+                   "그래서 앱은 슬롯에 받아두기만 하고, 실제 교체는 다음 부팅에 부트로더가 한다.",
+                   11, "start"))
+
+    SEQ = [
+        ("① 앱\n슬롯에 기록 + 태그",        C_FIRM),
+        ("② resetToUpdate()\n리셋",          C_KEEP),
+        ("③ 부트로더\nbootApplySlot()",      C_OLD),
+        ("④ 새 앱 실행\n10초 뒤 확정",        C_FIRM),
+    ]
+    BW2, GAP2 = 200, 48
+    ys = Y2 + 48
+    for i, (txt, col) in enumerate(SEQ):
+        x = XH + i * (BW2 + GAP2)
+        s.append(box(x, ys, BW2, 58, col, txt.split("\n"), 12))
+        if i < len(SEQ) - 1:
+            s.append(arrow(x + BW2 + 6, ys + 29, x + BW2 + GAP2 - 6, ys + 29))
+
+    s.append(label(XH, ys + 92,
+                   "부트로더 모드에서는 ①~③ 이 한 번에 끝난다. 지울 뱅크를 실행 중이 아니기 때문이다.",
+                   11, "start"))
+    s.append(label(XH, ys + 110,
+                   "④ 에서 10초를 못 버티면 boot_try 가 쌓이고, 3회면 되돌린다(08 문서).",
+                   11, "start"))
+    s.append(label(XH, ys + 136,
+                   "실측  USB CDC 140 KB/s   ·   이더넷 TCP 90 KB/s   ·   USB HID 35 KB/s",
+                   11, "start", "bold"))
+    s.append("</svg>")
+    return "".join(s)
+
+
 if __name__ == "__main__":
     import os
     here = os.path.dirname(os.path.abspath(__file__))
     for name, gen in [("slot-pingpong.svg", gen_pingpong),
                       ("rollback-flow.svg", gen_rollback),
-                      ("fault-recovery.svg", gen_fault)]:
+                      ("fault-recovery.svg", gen_fault),
+                      ("ota-paths.svg", gen_ota)]:
         p = os.path.join(here, name)
         open(p, "w").write(gen())
         print(f"  {name}  {os.path.getsize(p)} B")

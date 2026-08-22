@@ -84,6 +84,8 @@ python3 tools/net/discover.py --serve --name FAKE-BOARD-1 --version V990101R1
 
 ## 이더넷 OTA (TCP)
 
+![업데이트 경로와 적용 순서](images/ota-paths.svg)
+
 `cmd.c` 가 전송계층과 무관하게 설계되어 있어서 **여섯 함수만 채우면** CDC/HID 와
 같은 커맨드 셋이 네트워크에서 그대로 돈다. **부트로더는 손댄 것이 없다** - 앱이
 슬롯에 받아두고 `resetToUpdate()` 하면 다음 부팅에 부트로더가 적용한다.
